@@ -4,71 +4,25 @@ const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const os = require('os');
 const QRCode = require('qrcode');
-const { exec } = require('child_process');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = 3000;
-
-// АВТОМАИЧЕСКАЯ НАСТРОЙКА СЕТИ И БРАНДМАУЭРА WINDOWS ПРИ ЗАПУСКЕ
-function autoConfigureNetwork() {
-  // 1. Автоматический перевод всех Wi-Fi сетей в режим "Private" (Частная)
-  // 2. Добавление входящего правила в Брандмауэр для порта 3000
-  const psCommand = `
-    $profiles = Get-NetConnectionProfile;
-    foreach ($p in $profiles) {
-      if ($p.NetworkCategory -eq 'Public') {
-        Set-NetConnectionProfile -InterfaceIndex $p.InterfaceIndex -NetworkCategory Private
-      }
-    }
-    netsh advfirewall firewall add rule name="Kahoot Server Full" dir=in action=allow protocol=TCP localport=${PORT}
-  `;
-
-  const encodedCmd = Buffer.from(psCommand, 'utf16le').toString('base64');
-  const runAsAdmin = `powershell -Command "Start-Process powershell -ArgumentList '-EncodedCommand ${encodedCmd}' -Verb RunAs"`;
-
-  exec(runAsAdmin, (err) => {
-    if (err) {
-      console.log('Запрос прав администратора завершен.');
-    }
-  });
-}
-
-autoConfigureNetwork();
+const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-function getLocalIP() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return '127.0.0.1';
-}
-
-const localIP = getLocalIP();
-const playerUrl = `http://${localIP}:${PORT}`;
-
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
-const upload = multer({ storage });
-
+const upload = multer({ dest: 'uploads/' });
 const questionsPath = path.join(__dirname, 'questions.json');
 
 const defaultQuestions = [
@@ -100,16 +54,29 @@ function saveQuestions(questions) {
 
 app.get('/api/questions', (req, res) => res.json(getQuestions()));
 
-app.post('/api/questions', upload.single('image'), (req, res) => {
+app.post('/api/questions', upload.single('image'), async (req, res) => {
   const questions = getQuestions();
+  let imageUrl = null;
+
+  if (req.file) {
+    try {
+      const uploadResult = await cloudinary.uploader.upload(req.file.path);
+      imageUrl = uploadResult.secure_url;
+      fs.unlinkSync(req.file.path);
+    } catch (e) {
+      console.error('Ошибка загрузки картинки в Cloudinary:', e);
+    }
+  }
+
   const newQuestion = {
     id: Date.now(),
     question: req.body.question,
     options: [req.body.opt0, req.body.opt1, req.body.opt2, req.body.opt3],
     correctIndex: parseInt(req.body.correctIndex, 10),
     timeLimit: parseInt(req.body.timeLimit, 10) || 20,
-    image: req.file ? `/uploads/${req.file.filename}` : null
+    image: imageUrl
   };
+
   questions.push(newQuestion);
   saveQuestions(questions);
   res.json({ success: true, questions });
@@ -132,14 +99,21 @@ let gameState = {
   timeLeft: 0
 };
 
-io.on('connection', async (socket) => {
+io.on('connection', (socket) => {
   socket.on('host-join', async () => {
     socket.join('host');
-    const qrDataUrl = await QRCode.toDataURL(`${playerUrl}/player.html`);
+    
+    // Автоматическое определение внешнего домена облака (Render)
+    const hostHeader = socket.handshake.headers.host;
+    const protocol = socket.handshake.headers['x-forwarded-proto'] || 'http';
+    const playerUrl = `${protocol}://${hostHeader}/player.html`;
+    
+    const qrDataUrl = await QRCode.toDataURL(playerUrl);
+    
     socket.emit('init-host', {
       players: Object.values(gameState.players),
       qrCode: qrDataUrl,
-      playerUrl: `${playerUrl}/player.html`,
+      playerUrl: playerUrl,
       questionsCount: getQuestions().length
     });
   });
@@ -245,10 +219,5 @@ io.on('connection', async (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n=================================`);
-  console.log(` Kahoot Сервер запущен!`);
-  console.log(` Адрес подключения: ${playerUrl}`);
-  console.log(`=================================\n`);
-
-  exec(`start http://localhost:${PORT}`);
+  console.log(`Kahoot сервер запущен на порту ${PORT}`);
 });
