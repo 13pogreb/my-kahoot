@@ -18,7 +18,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234admin';
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
@@ -42,15 +41,6 @@ function getQuestions() {
 function saveQuestions(questions) {
   fs.writeFileSync(questionsPath, JSON.stringify(questions, null, 2), 'utf8');
 }
-
-app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body;
-  if (password === ADMIN_PASSWORD) {
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ success: false, message: 'Неверный пароль!' });
-  }
-});
 
 app.get('/api/questions', (req, res) => res.json(getQuestions()));
 
@@ -154,7 +144,6 @@ io.on('connection', (socket) => {
       return callback({ success: false, message: 'Неверный PIN код!' });
     }
     
-    // Проверка дублирования имени
     const existing = Object.values(gameState.players).find(p => p.name.toLowerCase() === name.toLowerCase());
     if (existing) {
       return callback({ success: false, message: 'Имя уже занято!' });
@@ -268,7 +257,6 @@ io.on('connection', (socket) => {
       player.score += 500 + bonus;
     }
 
-    // Расчет текущей позиции
     const sorted = Object.values(gameState.players).sort((a, b) => b.score - a.score);
     const rank = sorted.findIndex(p => p.id === socket.id) + 1;
 

@@ -16,101 +16,71 @@
     .action-bar button, .action-bar label { flex: 1; text-align: center; }
     .form-group { margin-bottom: 15px; }
     label { display: block; margin-bottom: 5px; font-weight: bold; }
-    input[type="text"], input[type="number"], input[type="password"], input[type="file"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #0f3460; background: #0f3460; color: #fff; box-sizing: border-box; }
+    input[type="text"], input[type="number"], input[type="file"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #0f3460; background: #0f3460; color: #fff; box-sizing: border-box; }
     .btn { background: #e94560; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
     .btn-secondary { background: #0f3460; border: 1px solid #e94560; }
     .question-card { background: #0f3460; padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; }
     .controls-btn-group { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
     .icon-btn { background: #16213e; color: #fff; border: 1px solid #e94560; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
     .icon-btn:hover { background: #e94560; }
-    #authModal { display: block; }
-    #adminContent { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
 
-    <div id="authModal">
-      <h2 style="text-align:center;">Вход в панель управления</h2>
+    <div class="nav-bar">
+      <a href="/" class="nav-btn" style="background:#0f3460; border: 1px solid #e94560;">🏠 Главное меню</a>
+      <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Экран Ведущего</a>
+      <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Экран Игрока</a>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачать викторину (.json)</button>
+      <label class="btn btn-secondary" style="margin:0; cursor:pointer;">
+        📂 Загрузить викторину с ПК
+        <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importQuiz(event)">
+      </label>
+      <button class="btn" style="background:#ff4757;" onclick="clearQuiz()">🗑 Очистить всё</button>
+    </div>
+
+    <h2>Добавить новый вопрос</h2>
+    <form id="addQuestionForm" enctype="multipart/form-data">
       <div class="form-group">
-        <label>Пароль администратора:</label>
-        <input type="password" id="adminPass" placeholder="Введите пароль">
+        <label>Вопрос:</label>
+        <input type="text" id="questionText" required placeholder="Введите текст вопроса">
       </div>
-      <button class="btn" style="width:100%;" onclick="login()">Войти</button>
-      <p id="authErr" style="color: #ff4757; text-align: center; margin-top: 10px;"></p>
-    </div>
-
-    <div id="adminContent">
-      <div class="nav-bar">
-        <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Экран Ведущего</a>
-        <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Экран Игрока</a>
+      <div class="form-group">
+        <label>Картинка (необязательно):</label>
+        <input type="file" id="imageFile" accept="image/*">
       </div>
-
-      <div class="action-bar">
-        <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачать викторину (.json)</button>
-        <label class="btn btn-secondary" style="margin:0; cursor:pointer;">
-          📂 Загрузить викторину с ПК
-          <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importQuiz(event)">
-        </label>
-        <button class="btn" style="background:#ff4757;" onclick="clearQuiz()">🗑 Очистить всё</button>
+      <div class="form-group">
+        <label>Время на ответ (сек):</label>
+        <input type="number" id="timeLimit" value="20" required>
       </div>
+      <div class="form-group"><label>Вариант 1 (Красный):</label><input type="text" id="opt0" required></div>
+      <div class="form-group"><label>Вариант 2 (Синий):</label><input type="text" id="opt1" required></div>
+      <div class="form-group"><label>Вариант 3 (Жёлтый):</label><input type="text" id="opt2" required></div>
+      <div class="form-group"><label>Вариант 4 (Зелёный):</label><input type="text" id="opt3" required></div>
+      <div class="form-group">
+        <label>Правильный ответ:</label>
+        <select id="correctIndex" style="width:100%; padding:10px; background:#0f3460; color:#fff; border-radius:6px;">
+          <option value="0">Вариант 1</option>
+          <option value="1">Вариант 2</option>
+          <option value="2">Вариант 3</option>
+          <option value="3">Вариант 4</option>
+        </select>
+      </div>
+      <button type="submit" class="btn" style="width:100%;">Сохранить вопрос</button>
+    </form>
 
-      <h2>Добавить новый вопрос</h2>
-      <form id="addQuestionForm" enctype="multipart/form-data">
-        <div class="form-group">
-          <label>Вопрос:</label>
-          <input type="text" id="questionText" required placeholder="Введите текст вопроса">
-        </div>
-        <div class="form-group">
-          <label>Картинка (необязательно):</label>
-          <input type="file" id="imageFile" accept="image/*">
-        </div>
-        <div class="form-group">
-          <label>Время на ответ (сек):</label>
-          <input type="number" id="timeLimit" value="20" required>
-        </div>
-        <div class="form-group"><label>Вариант 1 (Красный):</label><input type="text" id="opt0" required></div>
-        <div class="form-group"><label>Вариант 2 (Синий):</label><input type="text" id="opt1" required></div>
-        <div class="form-group"><label>Вариант 3 (Жёлтый):</label><input type="text" id="opt2" required></div>
-        <div class="form-group"><label>Вариант 4 (Зелёный):</label><input type="text" id="opt3" required></div>
-        <div class="form-group">
-          <label>Правильный ответ:</label>
-          <select id="correctIndex" style="width:100%; padding:10px; background:#0f3460; color:#fff; border-radius:6px;">
-            <option value="0">Вариант 1</option>
-            <option value="1">Вариант 2</option>
-            <option value="2">Вариант 3</option>
-            <option value="3">Вариант 4</option>
-          </select>
-        </div>
-        <button type="submit" class="btn" style="width:100%;">Сохранить вопрос</button>
-      </form>
-
-      <hr style="margin: 30px 0; border-color: #0f3460;">
-      <h2>Вопросы в текущей викторине</h2>
-      <div id="questionsList"></div>
-    </div>
+    <hr style="margin: 30px 0; border-color: #0f3460;">
+    <h2>Вопросы в текущей викторине</h2>
+    <div id="questionsList"></div>
   </div>
 
   <script>
     let currentQuestions = [];
-
-    async function login() {
-      const pass = document.getElementById('adminPass').value;
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pass })
-      });
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById('authModal').style.display = 'none';
-        document.getElementById('adminContent').style.display = 'block';
-        loadQuestions();
-      } else {
-        document.getElementById('authErr').innerText = data.message;
-      }
-    }
 
     async function loadQuestions() {
       const res = await fetch('/api/questions');
@@ -227,6 +197,9 @@
         loadQuestions();
       }
     }
+
+    // Загрузка вопросов при открытии админки
+    loadQuestions();
   </script>
 </body>
 </html>

@@ -29,8 +29,6 @@
     .stat-bar { height: 10px; background: rgba(255,255,255,0.8); border-radius: 5px; margin-top: 8px; transition: width 0.5s; width: 0%; }
     #questionArea, #leaderboardArea { display: none; }
     .leader-row { display: flex; justify-content: space-between; background: rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; font-size: 20px; }
-    
-    /* Пьедестал */
     .podium { display: flex; justify-content: center; align-items: flex-end; gap: 15px; height: 250px; margin-top: 30px; }
     .podium-step { width: 120px; background: rgba(255,255,255,0.2); border-radius: 12px 12px 0 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; font-weight: bold; }
     .step-1 { height: 200px; background: #f2a900; color: #000; }
@@ -42,11 +40,10 @@
   <div class="top-bar">
     <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
     <div>
-      <a href="/admin.html" class="btn btn-secondary" style="font-size:14px; margin-right: 5px;">⚙️ Админка</a>
+      <a href="/" class="btn btn-secondary" style="font-size:14px; margin-right: 5px;">🏠 Главное меню</a>
       <button class="btn btn-secondary" onclick="toggleFullScreen()" style="font-size:14px;">🖥 Проектор</button>
       <button class="btn" id="startBtn" onclick="nextQuestion()">ПОЕХАЛИ 🚀</button>
       
-      <!-- Панель управления во время вопроса -->
       <span id="gameControls" style="display:none;">
         <button class="btn btn-secondary" onclick="togglePause()">⏸ Пауза</button>
         <button class="btn btn-secondary" onclick="addTime(10)">+10с ⏱</button>
@@ -55,18 +52,16 @@
     </div>
   </div>
 
-  <!-- Экран ожидания (Лобби) -->
   <div id="lobbyArea">
     <div class="qr-container">
       <h2>Сканируй для входа!</h2>
       <img id="qrImg" src="" alt="QR Code">
       <p id="playerUrlText" style="font-size:16px; font-weight:bold;"></p>
     </div>
-    <h2 style="margin-top: 25px;">Игроки (<span id="playerCount">0</span>): <span style="font-size:14px; opacity:0.8;">(Нажмите на имя, чтобы удалить)</span></h2>
+    <h2 style="margin-top: 25px;">Игроки (<span id="playerCount">0</span>):</h2>
     <div id="playersList" class="players-list"></div>
   </div>
 
-  <!-- Экран вопроса -->
   <div id="questionArea" class="q-box">
     <div style="display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; margin-bottom: 15px;">
       <span id="qIndex">Вопрос 1</span>
@@ -78,14 +73,13 @@
     <div class="grid" id="optionsGrid"></div>
   </div>
 
-  <!-- Экран результатов и Пьедестал -->
   <div id="leaderboardArea" class="q-box">
     <h2 id="lbTitle" style="color: #f2a900; font-size: 32px;">🏆 ТАБЛИЦА ЛИДЕРОВ</h2>
     <div id="podiumArea" class="podium" style="display:none;"></div>
     <div id="leaderboardList" style="margin-top: 20px;"></div>
     
     <div id="finalNavButtons" style="display: none; margin-top: 25px;">
-      <a href="/admin.html" class="btn btn-secondary">📂 В главное меню админки</a>
+      <a href="/" class="btn btn-secondary">🏠 Главное меню</a>
       <button class="btn" onclick="location.reload()">🔄 Начать заново</button>
     </div>
   </div>
@@ -180,7 +174,6 @@
       document.getElementById('startBtn').style.display = 'inline-block';
       document.getElementById('startBtn').innerText = 'Следующий вопрос ➡️';
 
-      // Показ гистограммы ответов
       const totalAnswers = data.stats.reduce((a, b) => a + b, 0) || 1;
       data.stats.forEach((cnt, idx) => {
         const pct = Math.round((cnt / totalAnswers) * 100);
@@ -214,7 +207,6 @@
       document.getElementById('lbTitle').innerText = '🏆 ФИНАЛЬНЫЕ ИТОГИ ИГРЫ';
       document.getElementById('finalNavButtons').style.display = 'block';
 
-      // Вывод Пьедестала (1, 2, 3 места)
       const podium = document.getElementById('podiumArea');
       podium.style.display = 'flex';
       podium.innerHTML = '';
