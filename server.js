@@ -18,9 +18,10 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234admin';
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
 const questionsPath = path.join(__dirname, 'questions.json');
@@ -52,8 +53,45 @@ function saveQuestions(questions) {
   fs.writeFileSync(questionsPath, JSON.stringify(questions, null, 2), 'utf8');
 }
 
+// Авторизация админа
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, message: 'Неверный пароль!' });
+  }
+});
+
+// Получить вопросы
 app.get('/api/questions', (req, res) => res.json(getQuestions()));
 
+// Скачать файл викторины на ПК
+app.get('/api/questions/export', (req, res) => {
+  const questions = getQuestions();
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="quiz.json"');
+  res.send(JSON.stringify(questions, null, 2));
+});
+
+// Загрузить викторину из JSON файла с ПК
+app.post('/api/questions/import', (req, res) => {
+  const { questions } = req.body;
+  if (Array.isArray(questions)) {
+    saveQuestions(questions);
+    res.json({ success: true, questions });
+  } else {
+    res.status(400).json({ success: false, message: 'Неверный формат файла!' });
+  }
+});
+
+// Очистить текущую викторину
+app.delete('/api/questions/clear', (req, res) => {
+  saveQuestions([]);
+  res.json({ success: true });
+});
+
+// Добавить один вопрос
 app.post('/api/questions', upload.single('image'), async (req, res) => {
   const questions = getQuestions();
   let imageUrl = null;
@@ -82,6 +120,7 @@ app.post('/api/questions', upload.single('image'), async (req, res) => {
   res.json({ success: true, questions });
 });
 
+// Удалить вопрос
 app.delete('/api/questions/:id', (req, res) => {
   let questions = getQuestions();
   questions = questions.filter(q => q.id !== parseInt(req.params.id, 10));
@@ -103,7 +142,6 @@ io.on('connection', (socket) => {
   socket.on('host-join', async () => {
     socket.join('host');
     
-    // Автоматическое определение внешнего домена облака (Render)
     const hostHeader = socket.handshake.headers.host;
     const protocol = socket.handshake.headers['x-forwarded-proto'] || 'http';
     const playerUrl = `${protocol}://${hostHeader}/player.html`;
@@ -215,6 +253,8 @@ io.on('connection', (socket) => {
       correctIndex: questions[gameState.currentQuestionIndex].correctIndex,
       leaderboard
     });
+    
+    io.to('players').emit('round-ended');
   }
 });
 
