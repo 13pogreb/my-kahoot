@@ -1,0 +1,101 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kahoot - Игрок</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+    body { background: #f4f5f7; margin: 0; padding: 15px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+    .card { background: white; max-width: 450px; width: 100%; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    input { width: 100%; padding: 16px; font-size: 1.2em; margin: 10px 0; border: 3px solid #ddd; border-radius: 12px; text-align: center; font-weight: bold; }
+    input:focus { border-color: #46178f; outline: none; }
+    button.btn-main { width: 100%; padding: 18px; font-size: 1.3em; background: #333; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 900; margin-top: 10px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 75vh; max-width: 500px; margin: 0 auto; }
+    .btn-opt { border: none; border-radius: 15px; color: white; font-size: 3.5em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 0 rgba(0,0,0,0.2); }
+    .btn-opt:active { transform: translateY(4px); box-shadow: none; }
+    .btn-0 { background: #e21b3c; }
+    .btn-1 { background: #1368ce; }
+    .btn-2 { background: #d89e00; }
+    .btn-3 { background: #26890c; }
+    .status { font-size: 2.2em; font-weight: 900; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div id="login-screen" class="card">
+    <h2 style="color:#46178f; font-size:2em; margin:0 0 20px 0;">Kahoot!</h2>
+    <input type="text" id="pin-input" placeholder="PIN код" value="1234">
+    <input type="text" id="name-input" placeholder="Ваше имя">
+    <button class="btn-main" onclick="joinGame()">Войти в игру</button>
+  </div>
+
+  <div id="waiting-screen" class="card" style="display:none;">
+    <h2 id="wait-title" style="color:#46178f;">Вы в игре! 🎉</h2>
+    <p id="wait-msg" style="font-size:1.2em; color:#666;">Смотрите на главный экран...</p>
+  </div>
+
+  <div id="game-screen" style="display:none;">
+    <div class="grid">
+      <button class="btn-opt btn-0" onclick="sendAnswer(0)">▲</button>
+      <button class="btn-opt btn-1" onclick="sendAnswer(1)">■</button>
+      <button class="btn-opt btn-2" onclick="sendAnswer(2)">●</button>
+      <button class="btn-opt btn-3" onclick="sendAnswer(3)">◆</button>
+    </div>
+  </div>
+
+  <div id="result-screen" class="card" style="display:none;">
+    <div class="status" id="result-status"></div>
+    <p id="score-text" style="font-size:1.5em; margin-top:20px; font-weight:bold;"></p>
+  </div>
+
+  <script>
+    const socket = io();
+
+    function joinGame() {
+      const pin = document.getElementById('pin-input').value;
+      const name = document.getElementById('name-input').value;
+
+      if (!name) return alert('Введите ваше имя!');
+
+      socket.emit('player-join', { pin, name }, (res) => {
+        if (res.success) {
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('waiting-screen').style.display = 'block';
+        } else {
+          alert(res.message);
+        }
+      });
+    }
+
+    socket.on('show-question-player', () => {
+      document.getElementById('waiting-screen').style.display = 'none';
+      document.getElementById('result-screen').style.display = 'none';
+      document.getElementById('game-screen').style.display = 'block';
+    });
+
+    function sendAnswer(index) {
+      socket.emit('submit-answer', { optionIndex: index });
+      document.getElementById('game-screen').style.display = 'none';
+      document.getElementById('waiting-screen').style.display = 'block';
+      document.getElementById('wait-title').innerText = 'Ответ отправлен!';
+      document.getElementById('wait-msg').innerText = 'Ждем остальных игроков...';
+    }
+
+    socket.on('answer-result', (data) => {
+      document.getElementById('waiting-screen').style.display = 'none';
+      document.getElementById('result-screen').style.display = 'block';
+      const status = document.getElementById('result-status');
+      if (data.isCorrect) {
+        status.innerText = 'Правильно! 🎉';
+        status.style.color = '#26890c';
+      } else {
+        status.innerText = 'Увы, ошибка ❌';
+        status.style.color = '#e21b3c';
+      }
+      document.getElementById('score-text').innerText = `Всего очков: ${data.score}`;
+    });
+  </script>
+</body>
+</html>

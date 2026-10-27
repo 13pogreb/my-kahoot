@@ -1,0 +1,145 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kahoot - Экран ведущего</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+    body { background: #46178f; color: white; margin: 0; padding: 20px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+    .card { background: white; color: #333; max-width: 1000px; width: 100%; margin: 0 auto; padding: 40px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
+    .pin-badge { background: #33106d; color: white; display: inline-block; padding: 10px 30px; font-size: 2.5em; font-weight: 900; border-radius: 50px; margin: 15px 0; letter-spacing: 4px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+    .opt { padding: 25px; font-size: 1.5em; border-radius: 12px; color: white; font-weight: 900; text-align: left; transition: transform 0.2s, opacity 0.3s; display: flex; align-items: center; }
+    .opt-0 { background: #e21b3c; }
+    .opt-1 { background: #1368ce; }
+    .opt-2 { background: #d89e00; }
+    .opt-3 { background: #26890c; }
+    .opt-icon { font-size: 1.2em; margin-right: 15px; }
+    .correct { border: 6px solid #00ff22; transform: scale(1.03); box-shadow: 0 0 25px #00ff22; }
+    .fade { opacity: 0.3; }
+    button.btn-action { background: #1368ce; color: white; border: none; padding: 18px 45px; font-size: 1.5em; border-radius: 12px; cursor: pointer; font-weight: 900; margin-top: 25px; box-shadow: 0 6px 0 #0b4da2; transition: all 0.1s; }
+    button.btn-action:active { transform: translateY(4px); box-shadow: 0 2px 0 #0b4da2; }
+    .timer-circle { width: 90px; height: 90px; border-radius: 50%; background: #e21b3c; color: white; font-size: 2.5em; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .q-img { max-height: 280px; border-radius: 12px; margin: 20px 0; object-fit: contain; }
+    .qr-img { width: 220px; height: 220px; border-radius: 15px; border: 4px solid #46178f; margin: 15px auto; }
+    .players-flex { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 200px; overflow-y: auto; margin: 20px 0; }
+    .player-chip { background: #f0f0f0; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 1.2em; color: #46178f; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <div id="lobby" class="card">
+    <h1 style="font-size:2.5em; margin:0;">Подключайтесь к игре!</h1>
+    <p style="font-size:1.2em; color:#666;">Отсканируйте QR-код или перейдите по ссылке:</p>
+    <div id="qr-box"></div>
+    <div style="font-size: 1.1em; font-weight:bold; color: #1368ce; margin-top: 5px;" id="url-text"></div>
+    <div class="pin-badge">PIN: 1234</div>
+    <h2>Игроков в комнате (<span id="player-count">0</span>):</h2>
+    <div class="players-flex" id="player-list"></div>
+    <button class="btn-action" onclick="startGame()">Начать викторину</button>
+  </div>
+
+  <div id="game" class="card" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="q-num" style="font-size:1.4em; font-weight:900; color:#666;">Вопрос 1</span>
+      <div class="timer-circle" id="timer">20</div>
+    </div>
+    <h1 id="question-text" style="margin: 20px 0; font-size: 2.2em; min-height: 80px;">Вопрос...</h1>
+    <div id="img-container"></div>
+    <div class="grid" id="options-grid"></div>
+    <div style="margin-top:25px; font-size:1.4em; font-weight:bold;">Ответов получено: <span id="ans-count" style="color:#1368ce; font-size:1.3em;">0</span></div>
+  </div>
+
+  <div id="leaderboard" class="card" style="display:none;">
+    <h1 style="font-size:2.8em; color:#46178f;">🏆 Таблица лидеров</h1>
+    <div id="leader-list" style="font-size:1.6em; text-align:left; max-width:500px; margin:30px auto;"></div>
+    <button class="btn-action" id="lb-next-btn" onclick="nextQuestion()">Дальше</button>
+  </div>
+
+  <script>
+    const socket = io();
+    socket.emit('host-join');
+
+    socket.on('init-host', (data) => {
+      updatePlayers(data.players);
+      document.getElementById('qr-box').innerHTML = `<img src="${data.qrCode}" class="qr-img">`;
+      document.getElementById('url-text').innerText = data.playerUrl;
+    });
+
+    socket.on('update-players', updatePlayers);
+
+    function updatePlayers(players) {
+      document.getElementById('player-count').innerText = players.length;
+      document.getElementById('player-list').innerHTML = players.map(p => `<div class="player-chip">👤 ${p.name}</div>`).join('');
+    }
+
+    function startGame() {
+      document.getElementById('lobby').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      document.getElementById('leaderboard').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      socket.emit('next-question');
+    }
+
+    socket.on('show-question', (data) => {
+      document.getElementById('q-num').innerText = `Вопрос ${data.questionIndex} из ${data.totalQuestions}`;
+      document.getElementById('question-text').innerText = data.question;
+      document.getElementById('timer').innerText = data.timeLimit;
+      document.getElementById('ans-count').innerText = '0';
+
+      const imgBox = document.getElementById('img-container');
+      imgBox.innerHTML = data.image ? `<img src="${data.image}" class="q-img">` : '';
+
+      const icons = ['▲', '■', '●', '◆'];
+      const grid = document.getElementById('options-grid');
+      grid.innerHTML = data.options.map((opt, i) => `
+        <div class="opt opt-${i}" id="opt-${i}">
+          <span class="opt-icon">${icons[i]}</span> ${opt}
+        </div>
+      `).join('');
+    });
+
+    socket.on('timer-tick', (timeLeft) => {
+      document.getElementById('timer').innerText = timeLeft;
+    });
+
+    socket.on('answer-count-update', (count) => {
+      document.getElementById('ans-count').innerText = count;
+    });
+
+    socket.on('question-ended', (data) => {
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`opt-${i}`);
+        if (el) {
+          if (i === data.correctIndex) el.classList.add('correct');
+          else el.classList.add('fade');
+        }
+      }
+      setTimeout(() => showLeaderboard(data.leaderboard), 3500);
+    });
+
+    socket.on('game-over', (leaderboard) => {
+      showLeaderboard(leaderboard);
+      document.getElementById('lb-next-btn').style.display = 'none';
+    });
+
+    function showLeaderboard(board) {
+      document.getElementById('game').style.display = 'none';
+      document.getElementById('leaderboard').style.display = 'block';
+      const list = document.getElementById('leader-list');
+      list.innerHTML = board.map((p, i) => `
+        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:2px solid #eee;">
+          <span><b>${i+1}.</b> ${p.name}</span>
+          <span style="color:#1368ce; font-weight:900;">${p.score} б.</span>
+        </div>
+      `).join('');
+    }
+  </script>
+</body>
+</html>
