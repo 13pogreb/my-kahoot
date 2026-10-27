@@ -26,26 +26,16 @@ app.use(express.json({ limit: '10mb' }));
 const upload = multer({ dest: 'uploads/' });
 const questionsPath = path.join(__dirname, 'questions.json');
 
-const defaultQuestions = [
-  {
-    id: 1,
-    question: "Какой язык используется для бэкенда нашего приложения?",
-    options: ["Python", "Node.js", "C++", "PHP"],
-    correctIndex: 1,
-    timeLimit: 20
-  }
-];
-
 function getQuestions() {
   try {
     if (!fs.existsSync(questionsPath)) {
-      fs.writeFileSync(questionsPath, JSON.stringify(defaultQuestions, null, 2), 'utf8');
-      return defaultQuestions;
+      fs.writeFileSync(questionsPath, JSON.stringify([], null, 2), 'utf8');
+      return [];
     }
     const data = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
-    return data.length > 0 ? data : defaultQuestions;
+    return Array.isArray(data) ? data : [];
   } catch (err) {
-    return defaultQuestions;
+    return [];
   }
 }
 
@@ -77,7 +67,7 @@ app.post('/api/questions/import', (req, res) => {
     saveQuestions(questions);
     res.json({ success: true, questions });
   } else {
-    res.status(400).json({ success: false, message: 'Неверный формат файла!' });
+    res.status(400).json({ success: false, message: 'Неверный формат файлов!' });
   }
 });
 
@@ -114,6 +104,16 @@ app.post('/api/questions', upload.single('image'), async (req, res) => {
   res.json({ success: true, questions });
 });
 
+app.post('/api/questions/reorder', (req, res) => {
+  const { questions } = req.body;
+  if (Array.isArray(questions)) {
+    saveQuestions(questions);
+    res.json({ success: true });
+  } else {
+    res.status(400).json({ success: false });
+  }
+});
+
 app.delete('/api/questions/:id', (req, res) => {
   let questions = getQuestions();
   questions = questions.filter(q => q.id !== parseInt(req.params.id, 10));
@@ -127,18 +127,18 @@ let gameState = {
   currentQuestionIndex: -1,
   questionActive: false,
   answersCount: 0,
+  answerCounts: [0, 0, 0, 0],
   timer: null,
-  timeLeft: 0
+  timeLeft: 0,
+  isPaused: false
 };
 
 io.on('connection', (socket) => {
   socket.on('host-join', async () => {
     socket.join('host');
-    
     const hostHeader = socket.handshake.headers.host;
     const protocol = socket.handshake.headers['x-forwarded-proto'] || 'http';
     const playerUrl = `${protocol}://${hostHeader}/player.html`;
-    
     const qrDataUrl = await QRCode.toDataURL(playerUrl);
     
     socket.emit('init-host', {
@@ -153,14 +153,31 @@ io.on('connection', (socket) => {
     if (pin !== gameState.pin) {
       return callback({ success: false, message: 'Неверный PIN код!' });
     }
-    gameState.players[socket.id] = { name, score: 0, hasAnswered: false };
+    
+    // Проверка дублирования имени
+    const existing = Object.values(gameState.players).find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      return callback({ success: false, message: 'Имя уже занято!' });
+    }
+
+    gameState.players[socket.id] = { id: socket.id, name, score: 0, hasAnswered: false };
     socket.join('players');
     io.to('host').emit('update-players', Object.values(gameState.players));
     callback({ success: true });
   });
 
+  socket.on('kick-player', (playerId) => {
+    if (gameState.players[playerId]) {
+      delete gameState.players[playerId];
+      io.to(playerId).emit('kicked');
+      io.to('host').emit('update-players', Object.values(gameState.players));
+    }
+  });
+
   socket.on('next-question', () => {
     const questions = getQuestions();
+    if (questions.length === 0) return;
+
     gameState.currentQuestionIndex++;
     
     if (gameState.currentQuestionIndex >= questions.length) {
@@ -172,7 +189,9 @@ io.on('connection', (socket) => {
     const q = questions[gameState.currentQuestionIndex];
     gameState.questionActive = true;
     gameState.answersCount = 0;
+    gameState.answerCounts = [0, 0, 0, 0];
     gameState.timeLeft = q.timeLimit || 20;
+    gameState.isPaused = false;
 
     Object.values(gameState.players).forEach(p => p.hasAnswered = false);
 
@@ -192,16 +211,34 @@ io.on('connection', (socket) => {
       timeLimit: gameState.timeLeft
     });
 
+    startTimer();
+  });
+
+  function startTimer() {
     if (gameState.timer) clearInterval(gameState.timer);
     gameState.timer = setInterval(() => {
-      gameState.timeLeft--;
-      io.emit('timer-tick', gameState.timeLeft);
+      if (!gameState.isPaused) {
+        gameState.timeLeft--;
+        io.emit('timer-tick', gameState.timeLeft);
 
-      if (gameState.timeLeft <= 0) {
-        clearInterval(gameState.timer);
-        endQuestion();
+        if (gameState.timeLeft <= 0) {
+          clearInterval(gameState.timer);
+          endQuestion();
+        }
       }
     }, 1000);
+  }
+
+  socket.on('toggle-pause', () => {
+    gameState.isPaused = !gameState.isPaused;
+    io.to('host').emit('pause-state-changed', gameState.isPaused);
+  });
+
+  socket.on('add-time', (seconds) => {
+    if (gameState.questionActive) {
+      gameState.timeLeft += seconds;
+      io.emit('timer-tick', gameState.timeLeft);
+    }
   });
 
   socket.on('force-end-question', () => {
@@ -218,6 +255,9 @@ io.on('connection', (socket) => {
 
     player.hasAnswered = true;
     gameState.answersCount++;
+    if (optionIndex >= 0 && optionIndex <= 3) {
+      gameState.answerCounts[optionIndex]++;
+    }
 
     const questions = getQuestions();
     const currentQ = questions[gameState.currentQuestionIndex];
@@ -228,7 +268,11 @@ io.on('connection', (socket) => {
       player.score += 500 + bonus;
     }
 
-    socket.emit('answer-result', { isCorrect, score: player.score });
+    // Расчет текущей позиции
+    const sorted = Object.values(gameState.players).sort((a, b) => b.score - a.score);
+    const rank = sorted.findIndex(p => p.id === socket.id) + 1;
+
+    socket.emit('answer-result', { isCorrect, score: player.score, rank, total: sorted.length });
     io.to('host').emit('answer-count-update', {
       answersCount: gameState.answersCount,
       totalPlayers: Object.keys(gameState.players).length
@@ -255,13 +299,13 @@ io.on('connection', (socket) => {
 
     const currentQNum = gameState.currentQuestionIndex + 1;
     const isFinalQuestion = currentQNum === questions.length;
-    // Показываем турнирную таблицу каждые 3 вопроса или в самом конце
     const showLeaderboard = (currentQNum % 3 === 0) || isFinalQuestion;
 
     io.to('host').emit('question-ended', {
       correctIndex: questions[gameState.currentQuestionIndex].correctIndex,
       leaderboard,
-      showLeaderboard
+      showLeaderboard,
+      stats: gameState.answerCounts
     });
     
     io.to('players').emit('round-ended');

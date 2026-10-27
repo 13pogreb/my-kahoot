@@ -20,7 +20,9 @@
     .btn { background: #e94560; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
     .btn-secondary { background: #0f3460; border: 1px solid #e94560; }
     .question-card { background: #0f3460; padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; }
-    .delete-btn { position: absolute; top: 15px; right: 15px; background: #ff4757; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    .controls-btn-group { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
+    .icon-btn { background: #16213e; color: #fff; border: 1px solid #e94560; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    .icon-btn:hover { background: #e94560; }
     #authModal { display: block; }
     #adminContent { display: none; }
   </style>
@@ -40,13 +42,11 @@
     </div>
 
     <div id="adminContent">
-      <!-- Навигация -->
       <div class="nav-bar">
-        <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Запустить Экран Ведущего</a>
-        <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Тест экрана игрока</a>
+        <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Экран Ведущего</a>
+        <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Экран Игрока</a>
       </div>
 
-      <!-- Файловый менеджер -->
       <div class="action-bar">
         <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачать викторину (.json)</button>
         <label class="btn btn-secondary" style="margin:0; cursor:pointer;">
@@ -93,6 +93,8 @@
   </div>
 
   <script>
+    let currentQuestions = [];
+
     async function login() {
       const pass = document.getElementById('adminPass').value;
       const res = await fetch('/api/admin/login', {
@@ -112,14 +114,23 @@
 
     async function loadQuestions() {
       const res = await fetch('/api/questions');
-      const questions = await res.json();
+      currentQuestions = await res.json();
+      renderQuestions();
+    }
+
+    function renderQuestions() {
       const container = document.getElementById('questionsList');
       container.innerHTML = '';
-      questions.forEach((q, idx) => {
+      currentQuestions.forEach((q, idx) => {
         const card = document.createElement('div');
         card.className = 'question-card';
         card.innerHTML = `
-          <button class="delete-btn" onclick="deleteQuestion(${q.id})">Удалить</button>
+          <div class="controls-btn-group">
+            <button class="icon-btn" onclick="moveQuestion(${idx}, -1)">🔼</button>
+            <button class="icon-btn" onclick="moveQuestion(${idx}, 1)">🔽</button>
+            <button class="icon-btn" onclick="cloneQuestion(${idx})">📋</button>
+            <button class="icon-btn" style="border-color:#ff4757;" onclick="deleteQuestion(${q.id})">❌</button>
+          </div>
           <h3>${idx + 1}. ${q.question}</h3>
           ${q.image ? `<img src="${q.image}" style="max-width:100%; max-height:150px; border-radius:6px; margin-bottom:10px;">` : ''}
           <p><strong>Ответы:</strong> 1) ${q.options[0]} | 2) ${q.options[1]} | 3) ${q.options[2]} | 4) ${q.options[3]}</p>
@@ -127,6 +138,33 @@
         `;
         container.appendChild(card);
       });
+    }
+
+    async function moveQuestion(index, direction) {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= currentQuestions.length) return;
+      const temp = currentQuestions[index];
+      currentQuestions[index] = currentQuestions[newIndex];
+      currentQuestions[newIndex] = temp;
+      
+      await fetch('/api/questions/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: currentQuestions })
+      });
+      renderQuestions();
+    }
+
+    async function cloneQuestion(index) {
+      const q = currentQuestions[index];
+      const cloned = { ...q, id: Date.now(), question: q.question + ' (Копия)' };
+      currentQuestions.push(cloned);
+      await fetch('/api/questions/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: currentQuestions })
+      });
+      renderQuestions();
     }
 
     document.getElementById('addQuestionForm').onsubmit = async (e) => {
