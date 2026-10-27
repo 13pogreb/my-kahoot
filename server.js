@@ -53,7 +53,6 @@ function saveQuestions(questions) {
   fs.writeFileSync(questionsPath, JSON.stringify(questions, null, 2), 'utf8');
 }
 
-// Авторизация админа
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
@@ -63,10 +62,8 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
-// Получить вопросы
 app.get('/api/questions', (req, res) => res.json(getQuestions()));
 
-// Скачать файл викторины на ПК
 app.get('/api/questions/export', (req, res) => {
   const questions = getQuestions();
   res.setHeader('Content-Type', 'application/json');
@@ -74,7 +71,6 @@ app.get('/api/questions/export', (req, res) => {
   res.send(JSON.stringify(questions, null, 2));
 });
 
-// Загрузить викторину из JSON файла с ПК
 app.post('/api/questions/import', (req, res) => {
   const { questions } = req.body;
   if (Array.isArray(questions)) {
@@ -85,13 +81,11 @@ app.post('/api/questions/import', (req, res) => {
   }
 });
 
-// Очистить текущую викторину
 app.delete('/api/questions/clear', (req, res) => {
   saveQuestions([]);
   res.json({ success: true });
 });
 
-// Добавить один вопрос
 app.post('/api/questions', upload.single('image'), async (req, res) => {
   const questions = getQuestions();
   let imageUrl = null;
@@ -120,7 +114,6 @@ app.post('/api/questions', upload.single('image'), async (req, res) => {
   res.json({ success: true, questions });
 });
 
-// Удалить вопрос
 app.delete('/api/questions/:id', (req, res) => {
   let questions = getQuestions();
   questions = questions.filter(q => q.id !== parseInt(req.params.id, 10));
@@ -169,6 +162,7 @@ io.on('connection', (socket) => {
   socket.on('next-question', () => {
     const questions = getQuestions();
     gameState.currentQuestionIndex++;
+    
     if (gameState.currentQuestionIndex >= questions.length) {
       const leaderboard = Object.values(gameState.players).sort((a, b) => b.score - a.score);
       io.emit('game-over', leaderboard);
@@ -210,6 +204,13 @@ io.on('connection', (socket) => {
     }, 1000);
   });
 
+  socket.on('force-end-question', () => {
+    if (gameState.questionActive) {
+      if (gameState.timer) clearInterval(gameState.timer);
+      endQuestion();
+    }
+  });
+
   socket.on('submit-answer', ({ optionIndex }) => {
     if (!gameState.questionActive) return;
     const player = gameState.players[socket.id];
@@ -228,7 +229,10 @@ io.on('connection', (socket) => {
     }
 
     socket.emit('answer-result', { isCorrect, score: player.score });
-    io.to('host').emit('answer-count-update', gameState.answersCount);
+    io.to('host').emit('answer-count-update', {
+      answersCount: gameState.answersCount,
+      totalPlayers: Object.keys(gameState.players).length
+    });
 
     const totalPlayers = Object.keys(gameState.players).length;
     if (gameState.answersCount >= totalPlayers && totalPlayers > 0) {
@@ -249,9 +253,15 @@ io.on('connection', (socket) => {
     const questions = getQuestions();
     const leaderboard = Object.values(gameState.players).sort((a, b) => b.score - a.score);
 
+    const currentQNum = gameState.currentQuestionIndex + 1;
+    const isFinalQuestion = currentQNum === questions.length;
+    // Показываем турнирную таблицу каждые 3 вопроса или в самом конце
+    const showLeaderboard = (currentQNum % 3 === 0) || isFinalQuestion;
+
     io.to('host').emit('question-ended', {
       correctIndex: questions[gameState.currentQuestionIndex].correctIndex,
-      leaderboard
+      leaderboard,
+      showLeaderboard
     });
     
     io.to('players').emit('round-ended');
