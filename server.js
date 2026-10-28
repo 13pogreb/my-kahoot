@@ -1,7 +1,6 @@
 ﻿const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const QRCode = require('qrcode');
@@ -23,292 +22,272 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
-const questionsPath = path.join(__dirname, 'questions.json');
 
-function getQuestions() {
+const rooms = {};
+
+function generatePin() {
+  let pin;
+  do {
+    pin = Math.floor(1000 + Math.random() * 9000).toString();
+  } while (rooms[pin]);
+  return pin;
+}
+
+app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+  if (!req.file) return res.json({ success: true, imageUrl: null });
   try {
-    if (!fs.existsSync(questionsPath)) {
-      fs.writeFileSync(questionsPath, JSON.stringify([], null, 2), 'utf8');
-      return [];
-    }
-    const data = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    return [];
+    const uploadResult = await cloudinary.uploader.upload(req.file.path);
+    res.json({ success: true, imageUrl: uploadResult.secure_url });
+  } catch (e) {
+    console.error('Ошибка Cloudinary:', e);
+    res.status(500).json({ success: false, message: 'Ошибка загрузки изображения' });
   }
-}
-
-function saveQuestions(questions) {
-  fs.writeFileSync(questionsPath, JSON.stringify(questions, null, 2), 'utf8');
-}
-
-app.get('/api/questions', (req, res) => res.json(getQuestions()));
-
-app.get('/api/questions/export', (req, res) => {
-  const questions = getQuestions();
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', 'attachment; filename="quiz.json"');
-  res.send(JSON.stringify(questions, null, 2));
 });
 
-app.post('/api/questions/import', (req, res) => {
+app.post('/api/rooms/create', (req, res) => {
   const { questions } = req.body;
-  if (Array.isArray(questions)) {
-    saveQuestions(questions);
-    res.json({ success: true, questions });
-  } else {
-    res.status(400).json({ success: false, message: 'Неверный формат файлов!' });
-  }
-});
-
-app.delete('/api/questions/clear', (req, res) => {
-  saveQuestions([]);
-  res.json({ success: true });
-});
-
-app.post('/api/questions', upload.single('image'), async (req, res) => {
-  const questions = getQuestions();
-  let imageUrl = null;
-
-  if (req.file) {
-    try {
-      const uploadResult = await cloudinary.uploader.upload(req.file.path);
-      imageUrl = uploadResult.secure_url;
-      fs.unlinkSync(req.file.path);
-    } catch (e) {
-      console.error('Ошибка загрузки картинки в Cloudinary:', e);
-    }
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ success: false, message: 'Викторина должна содержать хотя бы один вопрос!' });
   }
 
-  const qType = req.body.type || 'quiz';
-  let options = [];
-
-  if (qType === 'true_false') {
-    options = ['Правда', 'Неправда'];
-  } else {
-    options = [req.body.opt0, req.body.opt1, req.body.opt2, req.body.opt3];
-  }
-
-  const newQuestion = {
-    id: Date.now(),
-    type: qType,
-    question: req.body.question,
-    options: options,
-    correctIndex: parseInt(req.body.correctIndex, 10),
-    timeLimit: parseInt(req.body.timeLimit, 10) || 20,
-    image: imageUrl
+  const pin = generatePin();
+  rooms[pin] = {
+    pin,
+    questions,
+    players: {},
+    currentQuestionIndex: -1,
+    questionActive: false,
+    answersCount: 0,
+    answerCounts: [0, 0, 0, 0],
+    timer: null,
+    countdownTimer: null,
+    timeLeft: 0,
+    isPaused: false
   };
 
-  questions.push(newQuestion);
-  saveQuestions(questions);
-  res.json({ success: true, questions });
+  res.json({ success: true, pin });
 });
-
-app.post('/api/questions/reorder', (req, res) => {
-  const { questions } = req.body;
-  if (Array.isArray(questions)) {
-    saveQuestions(questions);
-    res.json({ success: true });
-  } else {
-    res.status(400).json({ success: false });
-  }
-});
-
-app.delete('/api/questions/:id', (req, res) => {
-  let questions = getQuestions();
-  questions = questions.filter(q => q.id !== parseInt(req.params.id, 10));
-  saveQuestions(questions);
-  res.json({ success: true, questions });
-});
-
-let gameState = {
-  pin: '1234',
-  players: {},
-  currentQuestionIndex: -1,
-  questionActive: false,
-  answersCount: 0,
-  answerCounts: [0, 0, 0, 0],
-  timer: null,
-  timeLeft: 0,
-  isPaused: false
-};
 
 io.on('connection', (socket) => {
-  socket.on('host-join', async () => {
-    socket.join('host');
+  socket.on('host-join', async ({ pin }) => {
+    const room = rooms[pin];
+    if (!room) {
+      return socket.emit('error-msg', 'Комната не найдена или была закрыта!');
+    }
+
+    socket.join(`room_${pin}`);
+    socket.roomPin = pin;
+
     const hostHeader = socket.handshake.headers.host;
     const protocol = socket.handshake.headers['x-forwarded-proto'] || 'http';
-    const playerUrl = `${protocol}://${hostHeader}/player.html`;
+    const playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
     const qrDataUrl = await QRCode.toDataURL(playerUrl);
-    
+
     socket.emit('init-host', {
-      players: Object.values(gameState.players),
+      pin,
+      players: Object.values(room.players),
       qrCode: qrDataUrl,
       playerUrl: playerUrl,
-      questionsCount: getQuestions().length
+      questionsCount: room.questions.length
     });
   });
 
   socket.on('player-join', ({ pin, name }, callback) => {
-    if (pin !== gameState.pin) {
-      return callback({ success: false, message: 'Неверный PIN код!' });
-    }
-    
-    const existing = Object.values(gameState.players).find(p => p.name.toLowerCase() === name.toLowerCase());
-    if (existing) {
-      return callback({ success: false, message: 'Имя уже занято!' });
+    const room = rooms[pin];
+    if (!room) {
+      return callback({ success: false, message: 'Неверный PIN или игра не существует!' });
     }
 
-    gameState.players[socket.id] = { id: socket.id, name, score: 0, hasAnswered: false };
-    socket.join('players');
-    io.to('host').emit('update-players', Object.values(gameState.players));
+    const existing = Object.values(room.players).find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      return callback({ success: false, message: 'Это имя уже занято в игре!' });
+    }
+
+    const player = { id: socket.id, name, score: 0, hasAnswered: false };
+    room.players[socket.id] = player;
+    socket.join(`room_${pin}`);
+    socket.roomPin = pin;
+
+    io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
     callback({ success: true });
   });
 
   socket.on('kick-player', (playerId) => {
-    if (gameState.players[playerId]) {
-      delete gameState.players[playerId];
+    const pin = socket.roomPin;
+    const room = rooms[pin];
+    if (room && room.players[playerId]) {
+      delete room.players[playerId];
       io.to(playerId).emit('kicked');
-      io.to('host').emit('update-players', Object.values(gameState.players));
+      io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
     }
   });
 
   socket.on('next-question', () => {
-    const questions = getQuestions();
-    if (questions.length === 0) return;
+    const pin = socket.roomPin;
+    const room = rooms[pin];
+    if (!room || room.questions.length === 0) return;
 
-    gameState.currentQuestionIndex++;
-    
-    if (gameState.currentQuestionIndex >= questions.length) {
-      const leaderboard = Object.values(gameState.players).sort((a, b) => b.score - a.score);
-      io.emit('game-over', leaderboard);
-      return;
+    // Если это самый старт игры — запускаем 5-секундный отсчёт перед 1-м вопросом
+    if (room.currentQuestionIndex === -1) {
+      let countdown = 5;
+      io.to(`room_${pin}`).emit('start-countdown', { count: countdown });
+
+      if (room.countdownTimer) clearInterval(room.countdownTimer);
+      room.countdownTimer = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          io.to(`room_${pin}`).emit('countdown-tick', { count: countdown });
+        } else {
+          clearInterval(room.countdownTimer);
+          room.currentQuestionIndex++;
+          startQuestion(pin);
+        }
+      }, 1000);
+    } else {
+      // Для всех следующих вопросов сразу переходим к вопросу
+      room.currentQuestionIndex++;
+      if (room.currentQuestionIndex >= room.questions.length) {
+        const leaderboard = Object.values(room.players).sort((a, b) => b.score - a.score);
+        io.to(`room_${pin}`).emit('game-over', leaderboard);
+        return;
+      }
+      startQuestion(pin);
     }
+  });
 
-    const q = questions[gameState.currentQuestionIndex];
-    gameState.questionActive = true;
-    gameState.answersCount = 0;
-    gameState.answerCounts = [0, 0, 0, 0];
-    gameState.timeLeft = q.timeLimit || 20;
-    gameState.isPaused = false;
+  function startQuestion(pin) {
+    const room = rooms[pin];
+    if (!room) return;
 
-    Object.values(gameState.players).forEach(p => p.hasAnswered = false);
+    const q = room.questions[room.currentQuestionIndex];
+    room.questionActive = true;
+    room.answersCount = 0;
+    room.answerCounts = [0, 0, 0, 0];
+    room.timeLeft = q.timeLimit || 20;
+    room.isPaused = false;
 
-    io.to('host').emit('show-question', {
+    Object.values(room.players).forEach(p => p.hasAnswered = false);
+
+    io.to(`room_${pin}`).emit('show-question', {
       type: q.type || 'quiz',
       question: q.question,
       image: q.image,
       options: q.options,
       correctIndex: q.correctIndex,
-      timeLimit: gameState.timeLeft,
-      questionIndex: gameState.currentQuestionIndex + 1,
-      totalQuestions: questions.length
+      timeLimit: room.timeLeft,
+      questionIndex: room.currentQuestionIndex + 1,
+      totalQuestions: room.questions.length
     });
 
-    io.to('players').emit('show-question-player', {
+    io.to(`room_${pin}`).emit('show-question-player', {
       type: q.type || 'quiz',
-      questionIndex: gameState.currentQuestionIndex + 1,
+      questionIndex: room.currentQuestionIndex + 1,
       optionsCount: q.options.length,
-      timeLimit: gameState.timeLeft
+      timeLimit: room.timeLeft
     });
 
-    startTimer();
-  });
+    if (room.timer) clearInterval(room.timer);
+    room.timer = setInterval(() => {
+      if (!room.isPaused) {
+        room.timeLeft--;
+        io.to(`room_${pin}`).emit('timer-tick', room.timeLeft);
 
-  function startTimer() {
-    if (gameState.timer) clearInterval(gameState.timer);
-    gameState.timer = setInterval(() => {
-      if (!gameState.isPaused) {
-        gameState.timeLeft--;
-        io.emit('timer-tick', gameState.timeLeft);
-
-        if (gameState.timeLeft <= 0) {
-          clearInterval(gameState.timer);
-          endQuestion();
+        if (room.timeLeft <= 0) {
+          clearInterval(room.timer);
+          endQuestion(pin);
         }
       }
     }, 1000);
   }
 
   socket.on('toggle-pause', () => {
-    gameState.isPaused = !gameState.isPaused;
-    io.to('host').emit('pause-state-changed', gameState.isPaused);
+    const room = rooms[socket.roomPin];
+    if (room) {
+      room.isPaused = !room.isPaused;
+      io.to(`room_${socket.roomPin}`).emit('pause-state-changed', room.isPaused);
+    }
   });
 
   socket.on('add-time', (seconds) => {
-    if (gameState.questionActive) {
-      gameState.timeLeft += seconds;
-      io.emit('timer-tick', gameState.timeLeft);
+    const room = rooms[socket.roomPin];
+    if (room && room.questionActive) {
+      room.timeLeft += seconds;
+      io.to(`room_${socket.roomPin}`).emit('timer-tick', room.timeLeft);
     }
   });
 
   socket.on('force-end-question', () => {
-    if (gameState.questionActive) {
-      if (gameState.timer) clearInterval(gameState.timer);
-      endQuestion();
+    const room = rooms[socket.roomPin];
+    if (room && room.questionActive) {
+      if (room.timer) clearInterval(room.timer);
+      endQuestion(socket.roomPin);
     }
   });
 
   socket.on('submit-answer', ({ optionIndex }) => {
-    if (!gameState.questionActive) return;
-    const player = gameState.players[socket.id];
+    const pin = socket.roomPin;
+    const room = rooms[pin];
+    if (!room || !room.questionActive) return;
+
+    const player = room.players[socket.id];
     if (!player || player.hasAnswered) return;
 
     player.hasAnswered = true;
-    gameState.answersCount++;
+    room.answersCount++;
     if (optionIndex >= 0 && optionIndex <= 3) {
-      gameState.answerCounts[optionIndex]++;
+      room.answerCounts[optionIndex]++;
     }
 
-    const questions = getQuestions();
-    const currentQ = questions[gameState.currentQuestionIndex];
+    const currentQ = room.questions[room.currentQuestionIndex];
     const isCorrect = optionIndex === currentQ.correctIndex;
 
     if (isCorrect) {
-      const bonus = gameState.timeLeft * 10;
+      const bonus = room.timeLeft * 10;
       player.score += 500 + bonus;
     }
 
-    const sorted = Object.values(gameState.players).sort((a, b) => b.score - a.score);
+    const sorted = Object.values(room.players).sort((a, b) => b.score - a.score);
     const rank = sorted.findIndex(p => p.id === socket.id) + 1;
 
     socket.emit('answer-result', { isCorrect, score: player.score, rank, total: sorted.length });
-    io.to('host').emit('answer-count-update', {
-      answersCount: gameState.answersCount,
-      totalPlayers: Object.keys(gameState.players).length
+    io.to(`room_${pin}`).emit('answer-count-update', {
+      answersCount: room.answersCount,
+      totalPlayers: Object.keys(room.players).length
     });
 
-    const totalPlayers = Object.keys(gameState.players).length;
-    if (gameState.answersCount >= totalPlayers && totalPlayers > 0) {
-      clearInterval(gameState.timer);
-      endQuestion();
+    const totalPlayers = Object.keys(room.players).length;
+    if (room.answersCount >= totalPlayers && totalPlayers > 0) {
+      clearInterval(room.timer);
+      endQuestion(pin);
     }
   });
 
   socket.on('disconnect', () => {
-    if (gameState.players[socket.id]) {
-      delete gameState.players[socket.id];
-      io.to('host').emit('update-players', Object.values(gameState.players));
+    const pin = socket.roomPin;
+    const room = rooms[pin];
+    if (room && room.players[socket.id]) {
+      delete room.players[socket.id];
+      io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
     }
   });
 
-  function endQuestion() {
-    gameState.questionActive = false;
-    const questions = getQuestions();
-    const leaderboard = Object.values(gameState.players).sort((a, b) => b.score - a.score);
+  function endQuestion(pin) {
+    const room = rooms[pin];
+    if (!room) return;
 
-    const currentQNum = gameState.currentQuestionIndex + 1;
-    const isFinalQuestion = currentQNum === questions.length;
+    room.questionActive = false;
+    const leaderboard = Object.values(room.players).sort((a, b) => b.score - a.score);
+
+    const currentQNum = room.currentQuestionIndex + 1;
+    const isFinalQuestion = currentQNum === room.questions.length;
     const showLeaderboard = (currentQNum % 3 === 0) || isFinalQuestion;
 
-    io.to('host').emit('question-ended', {
-      correctIndex: questions[gameState.currentQuestionIndex].correctIndex,
+    io.to(`room_${pin}`).emit('question-ended', {
+      correctIndex: room.questions[room.currentQuestionIndex].correctIndex,
       leaderboard,
       showLeaderboard,
-      stats: gameState.answerCounts
+      stats: room.answerCounts
     });
-    
-    io.to('players').emit('round-ended');
   }
 });
 

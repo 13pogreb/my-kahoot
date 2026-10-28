@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>МОЇ ЛЮДИ kahoot — Гравець</title>
+  <title>МОЇ ЛЮДИ kahoot! — Гравець</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #46178f; color: #fff; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 100vh; text-align: center; }
     .brand { font-size: 32px; font-weight: bold; margin-top: 20px; letter-spacing: 1px; }
     .brand span { color: #f2a900; }
-    .lang-picker { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; font-weight: bold; }
     .card { background: rgba(255, 255, 255, 0.1); padding: 25px; border-radius: 12px; width: 85%; max-width: 400px; backdrop-filter: blur(10px); margin: auto; }
     input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: none; font-size: 18px; text-align: center; box-sizing: border-box; }
     .btn { background: #333; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
@@ -25,14 +24,13 @@
   </style>
 </head>
 <body>
-  <div class="lang-picker" onclick="toggleLang()"><span id="langLabel">🌐 UA</span></div>
-  <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
+  <div class="brand">МОЇ ЛЮДИ <span>kahoot!</span></div>
 
   <div id="loginScreen" class="card">
-    <h2 id="loginTitle">Вхід у гру</h2>
-    <input type="text" id="pinInput" placeholder="PIN код (1234)">
+    <h2>Вхід у гру</h2>
+    <input type="text" id="pinInput" placeholder="PIN код (на екрані)">
     <input type="text" id="nameInput" placeholder="Ваше ім'я">
-    <button class="btn" style="background: #26890c;" onclick="joinGame()" id="joinBtn">ПОЇХАЛИ</button>
+    <button class="btn" style="background: #26890c;" onclick="joinGame()">ПОЇХАЛИ</button>
     <p id="loginErr" style="color: #ff4757; margin-top: 10px;"></p>
   </div>
 
@@ -56,45 +54,17 @@
 
   <script>
     const socket = io();
-    let currentLang = localStorage.getItem('appLang') || 'UA';
+    const urlParams = new URLSearchParams(window.location.search);
+    const pinFromUrl = urlParams.get('pin');
 
-    const t = {
-      UA: {
-        title: 'Вхід у гру', name: "Ваше ім'я", join: 'ПОЇХАЛИ', waitTitle: 'Ви в грі!',
-        waitSub: 'Дивіться на головний екран...', accepted: 'Відповідь прийнято!',
-        waitOthers: 'Чекаємо інших гравців...', correct: '🔥 ПРАВИЛЬНО!', wrong: '❌ НЕВГАДАВ',
-        score: 'Ваші бали:', rank: 'Ви на', of: 'місці з', roundEnd: 'Раунд завершено',
-        overTitle: '🏆 Гра закінчена!', overSub: 'Дякуємо за участь!',
-        trueTxt: 'Правда', falseTxt: 'Неправда'
-      },
-      RU: {
-        title: 'Вход в игру', name: 'Ваше имя', join: 'ПОЕХАЛИ', waitTitle: 'Вы в игре!',
-        waitSub: 'Смотрите на главный экран...', accepted: 'Ответ принят!',
-        waitOthers: 'Ждём остальных игроков...', correct: '🔥 ПРАВИЛЬНО!', wrong: '❌ НЕУГАДАЛ',
-        score: 'Ваши очки:', rank: 'Вы на', of: 'месте из', roundEnd: 'Раунд завершен',
-        overTitle: '🏆 Игра окончена!', overSub: 'Спасибо за участие!',
-        trueTxt: 'Правда', falseTxt: 'Ложь'
-      }
-    };
-
-    function updateLangUI() {
-      document.getElementById('langLabel').innerText = '🌐 ' + currentLang;
-      document.getElementById('loginTitle').innerText = t[currentLang].title;
-      document.getElementById('nameInput').placeholder = t[currentLang].name;
-      document.getElementById('joinBtn').innerText = t[currentLang].join;
-      document.getElementById('waitTitle').innerText = t[currentLang].waitTitle;
-      document.getElementById('waitSub').innerText = t[currentLang].waitSub;
-    }
-
-    function toggleLang() {
-      currentLang = currentLang === 'UA' ? 'RU' : 'UA';
-      localStorage.setItem('appLang', currentLang);
-      updateLangUI();
+    if (pinFromUrl) {
+      document.getElementById('pinInput').value = pinFromUrl;
     }
 
     function joinGame() {
       const pin = document.getElementById('pinInput').value;
       const name = document.getElementById('nameInput').value;
+      if (!pin) return alert('Введіть PIN код!');
       if (!name) return alert('Введіть ім\'я!');
 
       socket.emit('player-join', { pin, name }, (res) => {
@@ -106,6 +76,12 @@
         }
       });
     }
+
+    socket.on('start-countdown', () => {
+      document.getElementById('waitingScreen').style.display = 'block';
+      document.getElementById('waitTitle').innerText = 'ПРИГОТУЙТЕСЯ!';
+      document.getElementById('waitSub').innerText = 'Гра зараз розпочнеться...';
+    });
 
     socket.on('show-question-player', (data) => {
       document.getElementById('waitingScreen').style.display = 'none';
@@ -119,8 +95,8 @@
       if (data.type === 'true_false') {
         grid.style.gridTemplateColumns = '1fr 1fr';
         grid.innerHTML = `
-          <button class="ans-btn blue" onclick="submitAnswer(0)">${t[currentLang].trueTxt}</button>
-          <button class="ans-btn red" onclick="submitAnswer(1)">${t[currentLang].falseTxt}</button>
+          <button class="ans-btn blue" onclick="submitAnswer(0)">Правда</button>
+          <button class="ans-btn red" onclick="submitAnswer(1)">Неправда</button>
         `;
       } else {
         grid.style.gridTemplateColumns = '1fr 1fr';
@@ -137,30 +113,30 @@
       socket.emit('submit-answer', { optionIndex: idx });
       document.getElementById('gameScreen').style.display = 'none';
       document.getElementById('waitingScreen').style.display = 'block';
-      document.getElementById('waitTitle').innerText = t[currentLang].accepted;
-      document.getElementById('waitSub').innerText = t[currentLang].waitOthers;
+      document.getElementById('waitTitle').innerText = 'Відповідь прийнято!';
+      document.getElementById('waitSub').innerText = 'Чекаємо інших гравців...';
     }
 
     socket.on('answer-result', (data) => {
       document.getElementById('waitingScreen').style.display = 'none';
       document.getElementById('resultScreen').style.display = 'block';
       if (data.isCorrect) {
-        document.getElementById('resTitle').innerText = t[currentLang].correct;
+        document.getElementById('resTitle').innerText = '🔥 ПРАВИЛЬНО!';
         document.getElementById('resTitle').style.color = '#26890c';
       } else {
-        document.getElementById('resTitle').innerText = t[currentLang].wrong;
+        document.getElementById('resTitle').innerText = '❌ НЕВГАДАВ';
         document.getElementById('resTitle').style.color = '#e21b3c';
       }
-      document.getElementById('resScore').innerText = `${t[currentLang].score} ${data.score}`;
-      document.getElementById('resRank').innerText = `${t[currentLang].rank} ${data.rank} ${t[currentLang].of} ${data.total}!`;
+      document.getElementById('resScore').innerText = `Ваші бали: ${data.score}`;
+      document.getElementById('resRank').innerText = `Ви на ${data.rank} місці з ${data.total}!`;
     });
 
     socket.on('round-ended', () => {
       setTimeout(() => {
         document.getElementById('resultScreen').style.display = 'none';
         document.getElementById('waitingScreen').style.display = 'block';
-        document.getElementById('waitTitle').innerText = t[currentLang].roundEnd;
-        document.getElementById('waitSub').innerText = t[currentLang].waitSub;
+        document.getElementById('waitTitle').innerText = 'Раунд завершено';
+        document.getElementById('waitSub').innerText = 'Дивіться на головний екран...';
       }, 2000);
     });
 
@@ -173,11 +149,9 @@
       document.getElementById('waitingScreen').style.display = 'block';
       document.getElementById('resultScreen').style.display = 'none';
       document.getElementById('gameScreen').style.display = 'none';
-      document.getElementById('waitTitle').innerText = t[currentLang].overTitle;
-      document.getElementById('waitSub').innerText = t[currentLang].overSub;
+      document.getElementById('waitTitle').innerText = '🏆 Гра закінчена!';
+      document.getElementById('waitSub').innerText = 'Дякуємо за участь!';
     });
-
-    updateLangUI();
   </script>
 </body>
 </html>
