@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>МОЇ ЛЮДИ kahoot! — Адмінка</title>
+  <title>МОЇ ЛЮДИ kahoot! — Конструктор</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #fff; margin: 0; padding: 20px; }
     .container { max-width: 850px; margin: 0 auto; background: #16213e; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .brand { text-transform: uppercase; letter-spacing: 2px; text-align: center; font-size: 28px; font-weight: bold; margin-bottom: 20px; }
     .brand span { color: #e94560; }
     .nav-bar { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 25px; background: #0f3460; padding: 12px; border-radius: 8px; flex-wrap: wrap; }
-    .nav-btn { background: #e94560; color: #fff; text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; transition: 0.2s; border: none; cursor: pointer; }
-    .nav-btn:hover { background: #ff6b81; }
+    .nav-btn { background: #26890c; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; transition: 0.2s; border: none; cursor: pointer; text-align: center; flex: 1; }
+    .nav-btn:hover { background: #2ed573; }
     .action-bar { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
     .action-bar button, .action-bar label { flex: 1; text-align: center; }
     .form-group { margin-bottom: 15px; }
@@ -23,22 +23,28 @@
     .controls-btn-group { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
     .icon-btn { background: #16213e; color: #fff; border: 1px solid #e94560; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
     .icon-btn:hover { background: #e94560; }
+    .room-launched-box { background: #26890c; padding: 20px; border-radius: 10px; margin-bottom: 25px; text-align: center; }
     .footer { text-align: center; font-size: 12px; opacity: 0.5; margin-top: 25px; letter-spacing: 1px; }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="adminContainer" style="display: none;">
     <div class="brand">МОЇ ЛЮДИ <span>kahoot!</span></div>
 
-    <div class="nav-bar">
-      <a href="/" class="nav-btn" style="background:#0f3460; border: 1px solid #e94560;">🏠 Головне меню</a>
-      <button onclick="openDisplayWindow()" class="nav-btn" style="background:#8854d0;">🖥 Відкрити екран на ТВ</button>
-      <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Екран Ведучого</a>
-      <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Екран Гравця</a>
+    <div id="roomLaunchArea" style="margin-bottom: 25px;">
+      <button class="nav-btn" onclick="createRoomAndStart()" style="width:100%; font-size: 20px; padding: 15px;">🚀 ЗАПУСТИТИ ГРУ ДЛЯ ЦІЄЇ ВІКТОРИНИ</button>
+    </div>
+
+    <div id="roomSuccessArea" class="room-launched-box" style="display: none;">
+      <h2>🎉 КІМНАТА СТВОРЕНА! PIN: <span id="createdPinText" style="font-size:36px; color:#f2a900;"></span></h2>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:15px; flex-wrap:wrap;">
+        <button onclick="openHostWindow()" class="btn" style="background:#1368ce;">📺 Відкрити Екран Ведучого</button>
+        <button onclick="openTVWindow()" class="btn" style="background:#8854d0;">🖥 Вивести на ТВ / Проектор</button>
+      </div>
     </div>
 
     <div class="action-bar">
-      <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачати вікторину (.json)</button>
+      <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачати (.json)</button>
       <label class="btn btn-secondary" style="margin:0; cursor:pointer;">
         📂 Завантажити з ПК
         <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importQuiz(event)">
@@ -51,8 +57,8 @@
       <div class="form-group">
         <label>Тип питания:</label>
         <select id="qType" onchange="toggleTypeFields()">
-          <option value="quiz">Викторина (4 варианта)</option>
-          <option value="true_false">Правда / Ложь (2 варианта)</option>
+          <option value="quiz">Викторина (4 варианты)</option>
+          <option value="true_false">Правда / Ложь (2 варианты)</option>
         </select>
       </div>
 
@@ -78,8 +84,7 @@
 
       <div class="form-group">
         <label>Правильна відповідь:</label>
-        <select id="correctIndex">
-        </select>
+        <select id="correctIndex"></select>
       </div>
 
       <button type="submit" class="btn" style="width:100%;">Зберегти питання</button>
@@ -94,9 +99,62 @@
 
   <script>
     let currentQuestions = [];
+    let activePin = null;
 
-    function openDisplayWindow() {
-      window.open('/host.html', 'KahootDisplayWindow', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+    // Прямая проверка ключа при попытке открыть admin.html напрямую
+    async function checkDirectAccess() {
+      const key = localStorage.getItem('licenseKey');
+      if (!key) {
+        alert('Доступ заборонено! Потрібен ключ ліцензії.');
+        window.location.href = '/';
+        return;
+      }
+
+      const res = await fetch('/api/license/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey: key })
+      });
+      const data = await res.json();
+
+      if (data.valid) {
+        document.getElementById('adminContainer').style.display = 'block';
+      } else {
+        alert('Помилка ліцензії: ' + data.message);
+        localStorage.removeItem('licenseKey');
+        window.location.href = '/';
+      }
+    }
+
+    async function createRoomAndStart() {
+      if (currentQuestions.length === 0) {
+        return alert('Спочатку додайте питання або завантажте вікторину з ПК!');
+      }
+
+      const licKey = localStorage.getItem('licenseKey');
+
+      const res = await fetch('/api/rooms/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: currentQuestions, licenseKey: licKey })
+      });
+      const data = await res.json();
+      if (data.success) {
+        activePin = data.pin;
+        document.getElementById('createdPinText').innerText = activePin;
+        document.getElementById('roomSuccessArea').style.display = 'block';
+      } else {
+        alert('Помилка доступу: ' + data.message);
+        window.location.href = '/';
+      }
+    }
+
+    function openHostWindow() {
+      window.open(`/host.html?pin=${activePin}`, '_blank');
+    }
+
+    function openTVWindow() {
+      window.open(`/host.html?pin=${activePin}`, 'KahootTVWindow', 'width=1280,height=720,menubar=no,toolbar=no,location=no');
     }
 
     function toggleTypeFields() {
@@ -121,12 +179,6 @@
       }
     }
 
-    async function loadQuestions() {
-      const res = await fetch('/api/questions');
-      currentQuestions = await res.json();
-      renderQuestions();
-    }
-
     function renderQuestions() {
       const container = document.getElementById('questionsList');
       container.innerHTML = '';
@@ -139,7 +191,7 @@
             <button class="icon-btn" onclick="moveQuestion(${idx}, -1)">🔼</button>
             <button class="icon-btn" onclick="moveQuestion(${idx}, 1)">🔽</button>
             <button class="icon-btn" onclick="cloneQuestion(${idx})">📋</button>
-            <button class="icon-btn" style="border-color:#ff4757;" onclick="deleteQuestion(${q.id})">❌</button>
+            <button class="icon-btn" style="border-color:#ff4757;" onclick="deleteQuestion(${idx})">❌</button>
           </div>
           <h3>${idx + 1}. [${isTF ? 'Правда/Ложь' : 'Викторина'}] ${q.question}</h3>
           ${q.image ? `<img src="${q.image}" style="max-width:100%; max-height:150px; border-radius:6px; margin-bottom:10px;">` : ''}
@@ -150,65 +202,79 @@
       });
     }
 
-    async function moveQuestion(index, direction) {
+    function moveQuestion(index, direction) {
       const newIndex = index + direction;
       if (newIndex < 0 || newIndex >= currentQuestions.length) return;
       const temp = currentQuestions[index];
       currentQuestions[index] = currentQuestions[newIndex];
       currentQuestions[newIndex] = temp;
-      
-      await fetch('/api/questions/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions: currentQuestions })
-      });
       renderQuestions();
     }
 
-    async function cloneQuestion(index) {
+    function cloneQuestion(index) {
       const q = currentQuestions[index];
       const cloned = { ...q, id: Date.now(), question: q.question + ' (Копія)' };
       currentQuestions.push(cloned);
-      await fetch('/api/questions/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions: currentQuestions })
-      });
       renderQuestions();
     }
 
     document.getElementById('addQuestionForm').onsubmit = async (e) => {
       e.preventDefault();
-      const formData = new FormData();
-      formData.append('type', document.getElementById('qType').value);
-      formData.append('question', document.getElementById('questionText').value);
-      formData.append('timeLimit', document.getElementById('timeLimit').value);
-      formData.append('opt0', document.getElementById('opt0').value);
-      formData.append('opt1', document.getElementById('opt1').value);
-      formData.append('opt2', document.getElementById('opt2').value);
-      formData.append('opt3', document.getElementById('opt3').value);
-      formData.append('correctIndex', document.getElementById('correctIndex').value);
       
+      let imageUrl = null;
       const fileInput = document.getElementById('imageFile');
       if (fileInput.files[0]) {
+        const formData = new FormData();
         formData.append('image', fileInput.files[0]);
+        const uploadRes = await fetch('/api/upload-image', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        if (uploadData.success) imageUrl = uploadData.imageUrl;
       }
 
-      await fetch('/api/questions', { method: 'POST', body: formData });
+      const qType = document.getElementById('qType').value;
+      let options = [];
+      if (qType === 'true_false') {
+        options = ['Правда', 'Неправда'];
+      } else {
+        options = [
+          document.getElementById('opt0').value,
+          document.getElementById('opt1').value,
+          document.getElementById('opt2').value,
+          document.getElementById('opt3').value
+        ];
+      }
+
+      const newQ = {
+        id: Date.now(),
+        type: qType,
+        question: document.getElementById('questionText').value,
+        options,
+        correctIndex: parseInt(document.getElementById('correctIndex').value, 10),
+        timeLimit: parseInt(document.getElementById('timeLimit').value, 10) || 20,
+        image: imageUrl
+      };
+
+      currentQuestions.push(newQ);
       document.getElementById('addQuestionForm').reset();
       toggleTypeFields();
-      loadQuestions();
+      renderQuestions();
     };
 
-    async function deleteQuestion(id) {
+    function deleteQuestion(index) {
       if (confirm('Видалити питання?')) {
-        await fetch(`/api/questions/${id}`, { method: 'DELETE' });
-        loadQuestions();
+        currentQuestions.splice(index, 1);
+        renderQuestions();
       }
     }
 
     function exportQuiz() {
-      window.location.href = '/api/questions/export';
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentQuestions, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "quiz.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
     }
 
     function importQuiz(event) {
@@ -216,16 +282,11 @@
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         try {
-          const questions = JSON.parse(e.target.result);
-          await fetch('/api/questions/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ questions })
-          });
+          currentQuestions = JSON.parse(e.target.result);
           alert('Успішно завантажено!');
-          loadQuestions();
+          renderQuestions();
         } catch (err) {
           alert('Помилка при читанні .json!');
         }
@@ -233,15 +294,16 @@
       reader.readAsText(file);
     }
 
-    async function clearQuiz() {
+    function clearQuiz() {
       if (confirm('Очистити всі питання?')) {
-        await fetch('/api/questions/clear', { method: 'DELETE' });
-        loadQuestions();
+        currentQuestions = [];
+        renderQuestions();
       }
     }
 
+    // Старт проверки прав при загрузке
+    checkDirectAccess();
     toggleTypeFields();
-    loadQuestions();
   </script>
 </body>
 </html>
