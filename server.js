@@ -23,7 +23,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
 
-// ВШИТЫЕ 100 КЛЮЧЕЙ + МАСТЕР-КЛЮЧ (РАБОТАЮТ ВСЕГДА)
+// ВШИТАЯ БАЗА 100 КЛЮЧЕЙ + МАСТЕР-КЛЮЧ
 const HARDCODED_KEYS = [
   'MLK26-POGR-EBNY-AK01',
   'MLK26-8F3A-9K2P-X7W4', 'MLK26-4B19-L8M0-Q3V6', 'MLK26-7T5E-2R9Y-H1N8', 'MLK26-3C6D-9P1X-K5W2',
