@@ -1,6 +1,7 @@
 ﻿const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const QRCode = require('qrcode');
@@ -22,6 +23,63 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
+const licensesPath = path.join(__dirname, 'licenses.json');
+
+function getLicenses() {
+  try {
+    if (!fs.existsSync(licensesPath)) return [];
+    const data = fs.readFileSync(licensesPath, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Ошибка чтения licenses.json:', err);
+    return [];
+  }
+}
+
+function saveLicenses(licenses) {
+  try {
+    fs.writeFileSync(licensesPath, JSON.stringify(licenses, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Ошибка записи licenses.json:', err);
+  }
+}
+
+function validateLicenseKey(key) {
+  if (!key) return { valid: false, message: 'Ключ ліцензії відсутній!' };
+  
+  const licenses = getLicenses();
+  const lic = licenses.find(l => l && l.key === key.trim());
+
+  if (!lic) {
+    return { valid: false, message: 'Недійсний ключ ліцензії!' };
+  }
+
+  const now = new Date();
+
+  if (!lic.activatedAt) {
+    lic.activatedAt = now.toISOString();
+    const exp = new Date();
+    exp.setDate(exp.getDate() + 365);
+    lic.expiresAt = exp.toISOString();
+    lic.status = 'active';
+    saveLicenses(licenses);
+    return { valid: true, expiresAt: lic.expiresAt };
+  }
+
+  if (new Date(lic.expiresAt) < now) {
+    lic.status = 'expired';
+    saveLicenses(licenses);
+    return { valid: false, message: 'Термін дії вашої ліцензії закінчився!' };
+  }
+
+  return { valid: true, expiresAt: lic.expiresAt };
+}
+
+app.post('/api/license/verify', (req, res) => {
+  const { licenseKey } = req.body;
+  const result = validateLicenseKey(licenseKey);
+  res.json(result);
+});
 
 const rooms = {};
 
@@ -45,7 +103,13 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 });
 
 app.post('/api/rooms/create', (req, res) => {
-  const { questions } = req.body;
+  const { questions, licenseKey } = req.body;
+  
+  const licCheck = validateLicenseKey(licenseKey);
+  if (!licCheck.valid) {
+    return res.status(403).json({ success: false, message: licCheck.message });
+  }
+
   if (!Array.isArray(questions) || questions.length === 0) {
     return res.status(400).json({ success: false, message: 'Викторина должна содержать хотя бы один вопрос!' });
   }
@@ -127,7 +191,6 @@ io.on('connection', (socket) => {
     const room = rooms[pin];
     if (!room || room.questions.length === 0) return;
 
-    // Если это самый старт игры — запускаем 5-секундный отсчёт перед 1-м вопросом
     if (room.currentQuestionIndex === -1) {
       let countdown = 5;
       io.to(`room_${pin}`).emit('start-countdown', { count: countdown });
@@ -144,7 +207,6 @@ io.on('connection', (socket) => {
         }
       }, 1000);
     } else {
-      // Для всех следующих вопросов сразу переходим к вопросу
       room.currentQuestionIndex++;
       if (room.currentQuestionIndex >= room.questions.length) {
         const leaderboard = Object.values(room.players).sort((a, b) => b.score - a.score);
