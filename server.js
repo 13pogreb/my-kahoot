@@ -23,7 +23,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
 
-// Подгрузка ключей через require
+// Чтение ключей из файла keys.json (не трогаем схему)
 let HARDCODED_KEYS = ['MLK26-POGR-EBNY-AK01'];
 try {
   HARDCODED_KEYS = require('./keys.json');
@@ -130,29 +130,30 @@ io.on('connection', (socket) => {
     socket.join(`room_${pin}`);
     socket.roomPin = pin;
 
-    try {
-      const hostHeader = socket.handshake.headers.host || 'localhost:3000';
-      const protocol = socket.handshake.headers['x-forwarded-proto'] || 'https';
-      const playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
-      const qrDataUrl = await QRCode.toDataURL(playerUrl);
+    let qrDataUrl = null;
+    let playerUrl = '';
 
-      socket.emit('init-host', {
-        pin,
-        players: Object.values(room.players),
-        qrCode: qrDataUrl,
-        playerUrl: playerUrl,
-        questionsCount: room.questions.length
+    try {
+      const hostHeader = socket.handshake.headers.host || 'moi-ludi-kahoot.onrender.com';
+      const protocol = socket.handshake.headers['x-forwarded-proto'] || 'https';
+      playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
+      
+      qrDataUrl = await QRCode.toDataURL(playerUrl, {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        width: 300
       });
     } catch (err) {
-      console.error('QR generation error:', err);
-      socket.emit('init-host', {
-        pin,
-        players: Object.values(room.players),
-        qrCode: null,
-        playerUrl: '',
-        questionsCount: room.questions.length
-      });
+      console.error('QR code generation fail:', err);
     }
+
+    socket.emit('init-host', {
+      pin,
+      players: Object.values(room.players),
+      qrCode: qrDataUrl,
+      playerUrl: playerUrl,
+      questionsCount: room.questions.length
+    });
   });
 
   socket.on('player-join', ({ pin, name }, callback) => {
