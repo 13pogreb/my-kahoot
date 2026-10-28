@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>МОЇ ЛЮДИ kahoot — Адмінка</title>
+  <title>МОЇ ЛЮДИ kahoot! — Адмінка</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #fff; margin: 0; padding: 20px; }
     .container { max-width: 850px; margin: 0 auto; background: #16213e; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .brand { text-transform: uppercase; letter-spacing: 2px; text-align: center; font-size: 28px; font-weight: bold; margin-bottom: 20px; }
     .brand span { color: #e94560; }
-    .nav-bar { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 25px; background: #0f3460; padding: 12px; border-radius: 8px; }
-    .nav-btn { background: #e94560; color: #fff; text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; font-size: 15px; display: inline-block; transition: 0.2s; }
+    .nav-bar { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 25px; background: #0f3460; padding: 12px; border-radius: 8px; flex-wrap: wrap; }
+    .nav-btn { background: #e94560; color: #fff; text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; transition: 0.2s; border: none; cursor: pointer; }
     .nav-btn:hover { background: #ff6b81; }
     .action-bar { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
     .action-bar button, .action-bar label { flex: 1; text-align: center; }
@@ -28,10 +28,11 @@
 </head>
 <body>
   <div class="container">
-    <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
+    <div class="brand">МОЇ ЛЮДИ <span>kahoot!</span></div>
 
     <div class="nav-bar">
       <a href="/" class="nav-btn" style="background:#0f3460; border: 1px solid #e94560;">🏠 Головне меню</a>
+      <button onclick="openDisplayWindow()" class="nav-btn" style="background:#8854d0;">🖥 Відкрити екран на ТВ</button>
       <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Екран Ведучого</a>
       <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Екран Гравця</a>
     </div>
@@ -68,7 +69,6 @@
         <input type="number" id="timeLimit" value="20" required>
       </div>
 
-      <!-- Варианты для классической викторины -->
       <div id="quizOptionsBlock">
         <div class="form-group"><label>Варіант 1 (Червоний):</label><input type="text" id="opt0" value="Вариант 1"></div>
         <div class="form-group"><label>Варіант 2 (Синій):</label><input type="text" id="opt1" value="Вариант 2"></div>
@@ -79,7 +79,6 @@
       <div class="form-group">
         <label>Правильна відповідь:</label>
         <select id="correctIndex">
-          <!-- Заполняется динамически -->
         </select>
       </div>
 
@@ -95,6 +94,10 @@
 
   <script>
     let currentQuestions = [];
+
+    function openDisplayWindow() {
+      window.open('/host.html', 'KahootDisplayWindow', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+    }
 
     function toggleTypeFields() {
       const type = document.getElementById('qType').value;
