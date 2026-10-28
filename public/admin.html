@@ -102,7 +102,7 @@
     let activePin = null;
 
     async function checkDirectAccess() {
-      const key = localStorage.getItem('licenseKey');
+      const key = sessionStorage.getItem('licenseKey');
       if (!key) {
         window.location.href = '/';
         return;
@@ -118,7 +118,7 @@
       if (data.valid) {
         document.getElementById('adminContainer').style.display = 'block';
       } else {
-        localStorage.removeItem('licenseKey');
+        sessionStorage.removeItem('licenseKey');
         window.location.href = '/';
       }
     }
@@ -128,7 +128,7 @@
         return alert('Спочатку додайте питання або завантажте вікторину з ПК!');
       }
 
-      const licKey = localStorage.getItem('licenseKey');
+      const licKey = sessionStorage.getItem('licenseKey');
 
       const res = await fetch('/api/rooms/create', {
         method: 'POST',

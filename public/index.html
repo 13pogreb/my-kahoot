@@ -31,7 +31,7 @@
     <div class="lang-picker" onclick="toggleLang()"><span id="langLabel">🌐 UA</span></div>
     <div class="brand">МОЇ ЛЮДИ <span>kahoot!</span></div>
 
-    <!-- Экран 1: Ввод ключа лицензии (по умолчанию показываем его) -->
+    <!-- Экран ввода ключа (показывается каждый раз) -->
     <div id="licenseAuthBlock">
       <div class="subtitle">Введіть ваш ключ ліцензії:</div>
       <input type="text" id="licenseInput" placeholder="MLK26-XXXX-XXXX-XXXX">
@@ -39,7 +39,7 @@
       <p id="licErr" style="color:#ff4757; font-size:14px; margin-top:10px; font-weight:bold;"></p>
     </div>
 
-    <!-- Экран 2: Главное меню (скрыто, пока не введен ключ) -->
+    <!-- Главное меню -->
     <div id="mainMenuBlock" style="display: none;">
       <div class="subtitle" id="subText">Оберіть режим:</div>
       <div class="btn-group">
@@ -75,24 +75,6 @@
       }
     };
 
-    async function checkExistingLicense() {
-      const key = localStorage.getItem('licenseKey');
-      if (!key) return;
-
-      const res = await fetch('/api/license/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licenseKey: key })
-      });
-      const data = await res.json();
-
-      if (data.valid) {
-        showMenu();
-      } else {
-        localStorage.removeItem('licenseKey');
-      }
-    }
-
     async function activateKey() {
       const input = document.getElementById('licenseInput').value.trim();
       if (!input) {
@@ -108,7 +90,8 @@
       const data = await res.json();
 
       if (data.valid) {
-        localStorage.setItem('licenseKey', input);
+        // Сохраняем ТОЛЬКО на время текущей сессии вкладки
+        sessionStorage.setItem('licenseKey', input);
         showMenu();
       } else {
         document.getElementById('licErr').innerText = data.message;
@@ -133,8 +116,23 @@
       updateUI();
     }
 
+    // Очищаем старые записи из вечной памяти localStorage
+    localStorage.removeItem('licenseKey');
+
+    // Проверяем сессию только текущей вкладки
+    const sessionKey = sessionStorage.getItem('licenseKey');
+    if (sessionKey) {
+      fetch('/api/license/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey: sessionKey })
+      }).then(r => r.json()).then(data => {
+        if (data.valid) showMenu();
+        else sessionStorage.removeItem('licenseKey');
+      });
+    }
+
     updateUI();
-    checkExistingLicense();
   </script>
 
 </body>
