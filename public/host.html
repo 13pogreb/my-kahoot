@@ -126,11 +126,19 @@
       updateLangUI();
     }
 
-    socket.emit('host-join');
+    // Извлекаем PIN-код из параметров ссылки (например, host.html?pin=5408)
+    const urlParams = new URLSearchParams(window.location.search);
+    const pin = urlParams.get('pin');
+
+    // Передаем PIN на сервер при подключении ведущего
+    socket.emit('host-join', { pin });
 
     socket.on('init-host', (data) => {
-      document.getElementById('qrImg').src = data.qrCode;
-      document.getElementById('playerUrlText').innerText = data.playerUrl;
+      if (data.playerUrl) {
+        // Рендерим QR-код через надежный публичный API прямо в браузере
+        document.getElementById('qrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.playerUrl)}`;
+        document.getElementById('playerUrlText').innerText = data.playerUrl;
+      }
       updatePlayers(data.players);
     });
 
@@ -176,12 +184,6 @@
       const colors = ['blue', 'red', 'yellow', 'green'];
       const grid = document.getElementById('optionsGrid');
       grid.innerHTML = '';
-
-      if (data.type === 'true_false') {
-        grid.style.gridTemplateColumns = '1fr 1fr';
-      } else {
-        grid.style.gridTemplateColumns = '1fr 1fr';
-      }
 
       data.options.forEach((opt, idx) => {
         const div = document.createElement('div');
