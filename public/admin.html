@@ -101,11 +101,9 @@
     let currentQuestions = [];
     let activePin = null;
 
-    // Прямая проверка ключа при попытке открыть admin.html напрямую
     async function checkDirectAccess() {
       const key = localStorage.getItem('licenseKey');
       if (!key) {
-        alert('Доступ заборонено! Потрібен ключ ліцензії.');
         window.location.href = '/';
         return;
       }
@@ -120,7 +118,6 @@
       if (data.valid) {
         document.getElementById('adminContainer').style.display = 'block';
       } else {
-        alert('Помилка ліцензії: ' + data.message);
         localStorage.removeItem('licenseKey');
         window.location.href = '/';
       }
@@ -301,7 +298,6 @@
       }
     }
 
-    // Старт проверки прав при загрузке
     checkDirectAccess();
     toggleTypeFields();
   </script>

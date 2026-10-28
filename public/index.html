@@ -13,29 +13,45 @@
     .brand span { color: #f2a900; }
     .subtitle { font-size: 16px; color: #666666; margin-bottom: 25px; font-weight: 600; }
     .btn-group { display: flex; flex-direction: column; gap: 12px; }
-    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; padding: 14px 20px; border-radius: 10px; font-size: 18px; font-weight: bold; color: #ffffff; transition: transform 0.1s, opacity 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border: none; cursor: pointer; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; padding: 14px 20px; border-radius: 10px; font-size: 18px; font-weight: bold; color: #ffffff; transition: transform 0.1s, opacity 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border: none; cursor: pointer; position: relative; }
     .btn:active { transform: scale(0.98); }
-    .btn-player { background: #e21b3c; }
-    .btn-host { background: #1368ce; }
     .btn-admin { background: #26890c; }
-    .btn-display { background: #8854d0; }
+    .btn-events { background: #0f3460; cursor: not-allowed; opacity: 0.85; }
+    .badge { position: absolute; right: 10px; top: 10px; background: #ff4757; color: #fff; font-size: 10px; font-weight: bold; padding: 3px 7px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-player { background: #333333; font-size: 15px; padding: 10px; }
     .footer { font-size: 13px; color: #888888; margin-top: 25px; font-weight: bold; letter-spacing: 0.5px; }
     .bg-footer { position: absolute; bottom: 15px; font-size: 12px; opacity: 0.6; color: #fff; letter-spacing: 1px; }
+    
+    input[type="text"] { width: 100%; padding: 14px; margin: 15px 0; border: 2px solid #46178f; border-radius: 10px; font-size: 18px; font-weight: bold; text-align: center; text-transform: uppercase; box-sizing: border-box; }
   </style>
 </head>
 <body>
 
   <div class="card">
     <div class="lang-picker" onclick="toggleLang()"><span id="langLabel">🌐 UA</span></div>
-    
     <div class="brand">МОЇ ЛЮДИ <span>kahoot!</span></div>
-    <div class="subtitle" id="subText">Оберіть режим входу:</div>
 
-    <div class="btn-group">
-      <a href="/player.html" class="btn btn-player" id="btnPlayer">📱 Увійти як Гравець</a>
-      <a href="/host.html" class="btn btn-host" id="btnHost">📺 Екран Ведучого</a>
-      <button onclick="openDisplayWindow()" class="btn btn-display" id="btnDisplay">🖥 Вивести на ТБ / Проектор</button>
-      <a href="/admin.html" class="btn btn-admin" id="btnAdmin">✏️ Конструктор / Адмінка</a>
+    <!-- Экран 1: Ввод ключа лицензии (по умолчанию показываем его) -->
+    <div id="licenseAuthBlock">
+      <div class="subtitle">Введіть ваш ключ ліцензії:</div>
+      <input type="text" id="licenseInput" placeholder="MLK26-XXXX-XXXX-XXXX">
+      <button class="btn btn-admin" style="width:100%;" onclick="activateKey()">АКТИВУВАТИ</button>
+      <p id="licErr" style="color:#ff4757; font-size:14px; margin-top:10px; font-weight:bold;"></p>
+    </div>
+
+    <!-- Экран 2: Главное меню (скрыто, пока не введен ключ) -->
+    <div id="mainMenuBlock" style="display: none;">
+      <div class="subtitle" id="subText">Оберіть режим:</div>
+      <div class="btn-group">
+        <a href="/admin.html" class="btn btn-admin" id="btnAdmin">✏️ Конструктор та Запуск Гри</a>
+        
+        <div class="btn btn-events" onclick="alert('Розділ знаходиться в розробці!')">
+          🎉 Івенти
+          <span class="badge">In Development</span>
+        </div>
+
+        <a href="/player.html" class="btn btn-player" id="btnPlayer">📱 Тест входу для Гравця</a>
+      </div>
     </div>
 
     <div class="footer">by pogrebnyak</div>
@@ -48,28 +64,67 @@
 
     const translations = {
       UA: {
-        sub: 'Оберіть режим входу:',
-        player: '📱 Увійти як Гравець',
-        host: '📺 Екран Ведучого',
-        display: '🖥 Вивести на ТБ / Проектор',
-        admin: '✏️ Конструктор / Адмінка'
+        sub: 'Оберіть режим:',
+        admin: '✏️ Конструктор та Запуск Гри',
+        player: '📱 Тест входу для Гравця'
       },
       RU: {
-        sub: 'Выберите режим входа:',
-        player: '📱 Войти как Игрок',
-        host: '📺 Экран Ведущего',
-        display: '🖥 Вывести на ТВ / Проектор',
-        admin: '✏️ Конструктор / Админка'
+        sub: 'Выберите режим:',
+        admin: '✏️ Конструктор и Запуск Игры',
+        player: '📱 Тест входа для Игрока'
       }
     };
+
+    async function checkExistingLicense() {
+      const key = localStorage.getItem('licenseKey');
+      if (!key) return;
+
+      const res = await fetch('/api/license/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey: key })
+      });
+      const data = await res.json();
+
+      if (data.valid) {
+        showMenu();
+      } else {
+        localStorage.removeItem('licenseKey');
+      }
+    }
+
+    async function activateKey() {
+      const input = document.getElementById('licenseInput').value.trim();
+      if (!input) {
+        document.getElementById('licErr').innerText = 'Будь ласка, введіть ключ!';
+        return;
+      }
+
+      const res = await fetch('/api/license/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey: input })
+      });
+      const data = await res.json();
+
+      if (data.valid) {
+        localStorage.setItem('licenseKey', input);
+        showMenu();
+      } else {
+        document.getElementById('licErr').innerText = data.message;
+      }
+    }
+
+    function showMenu() {
+      document.getElementById('licenseAuthBlock').style.display = 'none';
+      document.getElementById('mainMenuBlock').style.display = 'block';
+    }
 
     function updateUI() {
       document.getElementById('langLabel').innerText = '🌐 ' + currentLang;
       document.getElementById('subText').innerText = translations[currentLang].sub;
-      document.getElementById('btnPlayer').innerText = translations[currentLang].player;
-      document.getElementById('btnHost').innerText = translations[currentLang].host;
-      document.getElementById('btnDisplay').innerText = translations[currentLang].display;
       document.getElementById('btnAdmin').innerText = translations[currentLang].admin;
+      document.getElementById('btnPlayer').innerText = translations[currentLang].player;
     }
 
     function toggleLang() {
@@ -78,12 +133,8 @@
       updateUI();
     }
 
-    function openDisplayWindow() {
-      // Открываем Экран Ведущего в отдельном окне без рамок для перетаскивания на Второй экран/ТВ
-      window.open('/host.html', 'KahootDisplayWindow', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
-    }
-
     updateUI();
+    checkExistingLicense();
   </script>
 
 </body>
