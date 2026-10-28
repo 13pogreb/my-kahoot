@@ -23,33 +23,10 @@ app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
 
-// ВШИТЫЙ МАССИВ КЛЮЧЕЙ
+// ВСЕ КЛЮЧИ ИЗ ИСХОДНОГО ФАЙЛА MY_KEYS.TXT + МАСТЕР-КЛЮЧ
 const HARDCODED_KEYS = [
   'MLK26-POGR-EBNY-AK01',
-  'MLK26-8F3A-9K2P-X7W4', 'MLK26-4B19-L8M0-Q3V6', 'MLK26-7T5E-2R9Y-H1N8', 'MLK26-3C6D-9P1X-K5W2',
-  'MLK26-9M2N-4B8V-C7X1', 'MLK26-1L5K-8J3H-2G4F', 'MLK26-6D9S-8A7F-5G4H', 'MLK26-2J3K-4L5M-6N7P',
-  'MLK26-8Q9W-7E6R-5T4Y', 'MLK26-3U2I-1O4P-5A6S', 'MLK26-7D8F-9G1H-2J3K', 'MLK26-4L5Z-6X7C-8V9B',
-  'MLK26-1N2M-3K4J-5H6G', 'MLK26-9F8D-7S6A-5P4O', 'MLK26-3I2U-1Y4T-5R6E', 'MLK26-7W8Q-9A1S-2D3F',
-  'MLK26-4G5H-6J7K-8L9M', 'MLK26-1N2B-3V4C-5X6Z', 'MLK26-9M8N-7B6V-5C4X', 'MLK26-3Z2X-1C4V-5B6N',
-  'MLK26-7M8K-9J1H-2G3F', 'MLK26-4D5S-6A7P-8O9I', 'MLK26-1U2Y-3T4R-5E6W', 'MLK26-9Q8A-7S6D-5F4G',
-  'MLK26-3H2J-1K4L-5Z6X', 'MLK26-7C8V-9B1N-2M3K', 'MLK26-4J5H-6G7F-8D9S', 'MLK26-1A2P-3O4I-5U6Y',
-  'MLK26-9T8R-7E6W-5Q4A', 'MLK26-3S2D-1F4G-5H6J', 'MLK26-7K8L-9Z1X-2C3V', 'MLK26-4B5N-6M7K-8J9H',
-  'MLK26-1G2F-3D4S-5A6P', 'MLK26-9O8I-7U6Y-5T4R', 'MLK26-3E2W-1Q4A-5S6D', 'MLK26-7F8G-9H1J-2K3L',
-  'MLK26-4Z5X-6C7V-8B9N', 'MLK26-1M2K-3J4H-5G6F', 'MLK26-9D8S-7A6P-5O4I', 'MLK26-3U2Y-1T4R-5E6W',
-  'MLK26-7Q8A-9S1D-2F3G', 'MLK26-4H5J-6K7L-8Z9X', 'MLK26-1C2V-3B4N-5M6K', 'MLK26-9J8H-7G6F-5D4S',
-  'MLK26-3A2P-1O4I-5U6Y', 'MLK26-7T8R-9E1W-2Q3A', 'MLK26-4S5D-6F7G-8H9J', 'MLK26-1K2L-3Z4X-5C6V',
-  'MLK26-9B8N-7M6K-5J4H', 'MLK26-3G2F-1D4S-5A6P', 'MLK26-7O8I-9U1Y-2T3R', 'MLK26-4E5W-6Q7A-8S9D',
-  'MLK26-1F2G-3H4J-5K6L', 'MLK26-9Z8X-7C6V-5B4N', 'MLK26-3M2K-1J4H-5G6F', 'MLK26-7D8S-9A1P-2O3I',
-  'MLK26-4U5Y-6T7R-8E9W', 'MLK26-1Q2A-3S4D-5F6G', 'MLK26-9H8J-7K6L-5Z4X', 'MLK26-3C2V-1B4N-5M6K',
-  'MLK26-7J8H-9G1F-2D3S', 'MLK26-4A5P-6O7I-8U9Y', 'MLK26-1T2R-3E4W-5Q6A', 'MLK26-9S8D-7F6G-5H4J',
-  'MLK26-3K2L-1Z4X-5C6V', 'MLK26-7B8N-9M1K-2J3H', 'MLK26-4G5F-6D7S-8A9P', 'MLK26-1O2I-3U4Y-5T6R',
-  'MLK26-9E8W-7Q6A-5S4D', 'MLK26-3F2G-1H4J-5K6L', 'MLK26-7Z8X-9C1V-2B3N', 'MLK26-4M5K-6J7H-8G9F',
-  'MLK26-1D2S-3A4P-5O6I', 'MLK26-9U8Y-7T6R-5E4W', 'MLK26-3Q2A-1S4D-5F6G', 'MLK26-7H8J-9K1L-2Z3X',
-  'MLK26-4C5V-6B7N-8M9K', 'MLK26-1J2H-3G4F-5D6S', 'MLK26-9A2P-7O6I-5U4Y', 'MLK26-3T2R-1E4W-5Q6A',
-  'MLK26-7S8D-9F1G-2H3J', 'MLK26-4K5L-6Z7X-8C9V', 'MLK26-1B2N-3M4K-5J6H', 'MLK26-9G8F-7D6S-5A4P',
-  'MLK26-3O2I-1U4Y-5T6R', 'MLK26-7E8W-9Q1A-2S3D', 'MLK26-4F5G-6H7J-8K9L', 'MLK26-1Z2X-3C4V-5B6N',
-  'MLK26-9M8K-7J6H-5G4F', 'MLK26-3D2S-1A4P-5O6I', 'MLK26-7U8Y-9T1R-2E3W', 'MLK26-4Q5A-6S7D-8F9G',
-  'MLK26-1H2J-3K4L-5Z6X', 'MLK26-9C8V-7B6N-5M4K', 'MLK26-3J2H-1G4F-5D6S', 'MLK26-7A8P-9O1I-2U3Y'
+  'MLK26-L5M7-HYZJ-TOFM', 'MLK26-YO4N-INYR-JCU1', 'MLK26-53LB-2MSG-CK19', 'MLK26-1QS3-6BHP-OACQ', 'MLK26-IVLT-UH0P-3XNL', 'MLK26-AIBL-VB3L-52E0', 'MLK26-XD29-RBI3-WG64', 'MLK26-X0VY-RIKU-UZQN', 'MLK26-GLA9-HM6V-RHUV', 'MLK26-3MEF-EPZN-4BRN', 'MLK26-LEKT-UDMP-EJC6', 'MLK26-FDQ3-6HQF-JU1K', 'MLK26-BAJC-HPGQ-G80H', 'MLK26-BY3J-5Y2U-KFRH', 'MLK26-3XWO-7F5W-K1EU', 'MLK26-H5KA-QSRM-GOV6', 'MLK26-A76D-GQXN-VXPY', 'MLK26-0P5J-JPA6-6RF1', 'MLK26-YTH8-2UO6-AGKU', 'MLK26-17TD-1G7C-M7NI', 'MLK26-IVAM-65T8-LW2O', 'MLK26-CXE4-EUSJ-SK1G', 'MLK26-96M2-2V4R-9A6N', 'MLK26-H76O-YPJ3-401U', 'MLK26-90RM-HAOE-LMDI', 'MLK26-46GY-UXDH-OUDC', 'MLK26-J24M-0WJI-N7E8', 'MLK26-0DEP-YGKO-4MR3', 'MLK26-T9CJ-F3YA-JNUZ', 'MLK26-SL3N-V3BD-L1RQ', 'MLK26-KV48-H829-OH8P', 'MLK26-3IN0-GOM1-B4M5', 'MLK26-8PH2-NT9Q-2MV9', 'MLK26-J3VU-C57O-T57F', 'MLK26-0H2L-USYA-4SVJ', 'MLK26-2C0B-WTDY-R9SE', 'MLK26-RD3E-3R0U-HQ0I', 'MLK26-SE54-ZFHV-V15H', 'MLK26-BT5L-R3B0-QP6M', 'MLK26-AFVH-ZY74-F0Q4', 'MLK26-0U7E-730I-3HYD', 'MLK26-8D5V-7TXY-O0IL', 'MLK26-XV3M-IA6R-BEIY', 'MLK26-6GKS-QX48-IN7T', 'MLK26-QOMW-CILR-GR0T', 'MLK26-9VGH-IHPM-S674', 'MLK26-RI0X-84BM-VIG0', 'MLK26-O06W-YIHU-DPG5', 'MLK26-SAJ4-7XB8-J6P8', 'MLK26-XOVM-4LPW-NHI0', 'MLK26-FPEI-4WFR-MTOX', 'MLK26-XY0H-RN83-D9R5', 'MLK26-KYIP-OICL-YGHO', 'MLK26-4TB3-5CTO-BT7E', 'MLK26-X25I-D05V-DY3W', 'MLK26-KHP5-8LGM-63FV', 'MLK26-H0Z7-6VZS-67ZS', 'MLK26-EWFS-5GRJ-20N7', 'MLK26-Z1UJ-B24S-1KD5', 'MLK26-0VF2-FIM2-BH4A', 'MLK26-ANK1-E7KB-86D0', 'MLK26-6FLU-JIS1-HBA4', 'MLK26-0WX6-DN2K-Z73X', 'MLK26-Z1YV-FBPG-LKSJ', 'MLK26-HT5O-R9UQ-8BYJ', 'MLK26-AWH9-P3SU-6H8P', 'MLK26-PDK8-NYUP-ZS5A', 'MLK26-O1PJ-SU6F-PGQB', 'MLK26-F9DQ-F6KG-BHKV', 'MLK26-VU4L-LUJX-EJGL', 'MLK26-4N7B-V2A8-CK78', 'MLK26-3UO5-B367-VPN6', 'MLK26-YUE0-LRO2-VYAB', 'MLK26-3I7J-GE6I-0RAJ', 'MLK26-XAZL-BVCT-SQXC', 'MLK26-MC78-ZG72-XI0U', 'MLK26-XM40-TS5F-KWSP', 'MLK26-VJPG-UKNP-N079', 'MLK26-B6YK-KLOC-4N79', 'MLK26-VNL2-4OKV-UFH7', 'MLK26-SP0Y-2HAG-GQ4U', 'MLK26-NYZW-PNLO-46GD', 'MLK26-5FR8-ROTV-X4Y7', 'MLK26-ZLVQ-W0HA-GZY5', 'MLK26-DUXP-4BG0-48YH', 'MLK26-7JEU-WDKR-18AK', 'MLK26-IYVP-58WM-NS79', 'MLK26-PN7H-WGP3-CQA3', 'MLK26-VOHI-HN5P-BURF', 'MLK26-QTC1-TAXO-UDWT', 'MLK26-ELM0-BWOT-TC6R', 'MLK26-DX0N-AQZP-R7TE', 'MLK26-1T5H-OAFH-5NOE', 'MLK26-R5EX-9MNK-78A6', 'MLK26-SRE0-C3LQ-0VD8', 'MLK26-XVGS-X9NV-D0NJ', 'MLK26-UAP7-A847-8U32', 'MLK26-4WQJ-B9GO-LU2W', 'MLK26-QXLD-7KSM-GTSC', 'MLK26-UHI7-WVRE-6VB3'
 ];
 
 const activeLicenses = {};
@@ -148,13 +125,13 @@ io.on('connection', (socket) => {
       return socket.emit('error-msg', 'Комната не найдена или была закрыта!');
     }
 
-    socket.join(`room_${pin}`);
+    socket.join(oom_\);
     socket.roomPin = pin;
 
     try {
       const hostHeader = socket.handshake.headers.host || 'localhost:3000';
       const protocol = socket.handshake.headers['x-forwarded-proto'] || 'https';
-      const playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
+      const playerUrl = \://\/player.html?pin=\;
       const qrDataUrl = await QRCode.toDataURL(playerUrl);
 
       socket.emit('init-host', {
@@ -189,10 +166,10 @@ io.on('connection', (socket) => {
 
     const player = { id: socket.id, name, score: 0, hasAnswered: false };
     room.players[socket.id] = player;
-    socket.join(`room_${pin}`);
+    socket.join(oom_\);
     socket.roomPin = pin;
 
-    io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
+    io.to(oom_\).emit('update-players', Object.values(room.players));
     callback({ success: true });
   });
 
@@ -202,7 +179,7 @@ io.on('connection', (socket) => {
     if (room && room.players[playerId]) {
       delete room.players[playerId];
       io.to(playerId).emit('kicked');
-      io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
+      io.to(oom_\).emit('update-players', Object.values(room.players));
     }
   });
 
@@ -213,13 +190,13 @@ io.on('connection', (socket) => {
 
     if (room.currentQuestionIndex === -1) {
       let countdown = 5;
-      io.to(`room_${pin}`).emit('start-countdown', { count: countdown });
+      io.to(oom_\).emit('start-countdown', { count: countdown });
 
       if (room.countdownTimer) clearInterval(room.countdownTimer);
       room.countdownTimer = setInterval(() => {
         countdown--;
         if (countdown > 0) {
-          io.to(`room_${pin}`).emit('countdown-tick', { count: countdown });
+          io.to(oom_\).emit('countdown-tick', { count: countdown });
         } else {
           clearInterval(room.countdownTimer);
           room.currentQuestionIndex++;
@@ -230,7 +207,7 @@ io.on('connection', (socket) => {
       room.currentQuestionIndex++;
       if (room.currentQuestionIndex >= room.questions.length) {
         const leaderboard = Object.values(room.players).sort((a, b) => b.score - a.score);
-        io.to(`room_${pin}`).emit('game-over', leaderboard);
+        io.to(oom_\).emit('game-over', leaderboard);
         return;
       }
       startQuestion(pin);
@@ -250,7 +227,7 @@ io.on('connection', (socket) => {
 
     Object.values(room.players).forEach(p => p.hasAnswered = false);
 
-    io.to(`room_${pin}`).emit('show-question', {
+    io.to(oom_\).emit('show-question', {
       type: q.type || 'quiz',
       question: q.question,
       image: q.image,
@@ -261,7 +238,7 @@ io.on('connection', (socket) => {
       totalQuestions: room.questions.length
     });
 
-    io.to(`room_${pin}`).emit('show-question-player', {
+    io.to(oom_\).emit('show-question-player', {
       type: q.type || 'quiz',
       questionIndex: room.currentQuestionIndex + 1,
       optionsCount: q.options.length,
@@ -272,7 +249,7 @@ io.on('connection', (socket) => {
     room.timer = setInterval(() => {
       if (!room.isPaused) {
         room.timeLeft--;
-        io.to(`room_${pin}`).emit('timer-tick', room.timeLeft);
+        io.to(oom_\).emit('timer-tick', room.timeLeft);
 
         if (room.timeLeft <= 0) {
           clearInterval(room.timer);
@@ -286,7 +263,7 @@ io.on('connection', (socket) => {
     const room = rooms[socket.roomPin];
     if (room) {
       room.isPaused = !room.isPaused;
-      io.to(`room_${socket.roomPin}`).emit('pause-state-changed', room.isPaused);
+      io.to(oom_\).emit('pause-state-changed', room.isPaused);
     }
   });
 
@@ -294,7 +271,7 @@ io.on('connection', (socket) => {
     const room = rooms[socket.roomPin];
     if (room && room.questionActive) {
       room.timeLeft += seconds;
-      io.to(`room_${socket.roomPin}`).emit('timer-tick', room.timeLeft);
+      io.to(oom_\).emit('timer-tick', room.timeLeft);
     }
   });
 
@@ -332,7 +309,7 @@ io.on('connection', (socket) => {
     const rank = sorted.findIndex(p => p.id === socket.id) + 1;
 
     socket.emit('answer-result', { isCorrect, score: player.score, rank, total: sorted.length });
-    io.to(`room_${pin}`).emit('answer-count-update', {
+    io.to(oom_\).emit('answer-count-update', {
       answersCount: room.answersCount,
       totalPlayers: Object.keys(room.players).length
     });
@@ -349,7 +326,7 @@ io.on('connection', (socket) => {
     const room = rooms[pin];
     if (room && room.players[socket.id]) {
       delete room.players[socket.id];
-      io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
+      io.to(oom_\).emit('update-players', Object.values(room.players));
     }
   });
 
@@ -364,7 +341,7 @@ io.on('connection', (socket) => {
     const isFinalQuestion = currentQNum === room.questions.length;
     const showLeaderboard = (currentQNum % 3 === 0) || isFinalQuestion;
 
-    io.to(`room_${pin}`).emit('question-ended', {
+    io.to(oom_\).emit('question-ended', {
       correctIndex: room.questions[room.currentQuestionIndex].correctIndex,
       leaderboard,
       showLeaderboard,
@@ -374,5 +351,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Kahoot сервер запущен на порту ${PORT}`);
+  console.log(Kahoot сервер запущен на порту \);
 });
