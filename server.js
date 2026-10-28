@@ -23,7 +23,6 @@ app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
 
-// ВШИТАЯ БАЗА 100 КЛЮЧЕЙ + МАСТЕР-КЛЮЧ
 const HARDCODED_KEYS = [
   'MLK26-POGR-EBNY-AK01',
   'MLK26-8F3A-9K2P-X7W4', 'MLK26-4B19-L8M0-Q3V6', 'MLK26-7T5E-2R9Y-H1N8', 'MLK26-3C6D-9P1X-K5W2',
@@ -151,18 +150,29 @@ io.on('connection', (socket) => {
     socket.join(`room_${pin}`);
     socket.roomPin = pin;
 
-    const hostHeader = socket.handshake.headers.host;
-    const protocol = socket.handshake.headers['x-forwarded-proto'] || 'http';
-    const playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
-    const qrDataUrl = await QRCode.toDataURL(playerUrl);
+    try {
+      const hostHeader = socket.handshake.headers.host || 'localhost:3000';
+      const protocol = socket.handshake.headers['x-forwarded-proto'] || 'https';
+      const playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
+      const qrDataUrl = await QRCode.toDataURL(playerUrl);
 
-    socket.emit('init-host', {
-      pin,
-      players: Object.values(room.players),
-      qrCode: qrDataUrl,
-      playerUrl: playerUrl,
-      questionsCount: room.questions.length
-    });
+      socket.emit('init-host', {
+        pin,
+        players: Object.values(room.players),
+        qrCode: qrDataUrl,
+        playerUrl: playerUrl,
+        questionsCount: room.questions.length
+      });
+    } catch (err) {
+      console.error('QR generation error:', err);
+      socket.emit('init-host', {
+        pin,
+        players: Object.values(room.players),
+        qrCode: null,
+        playerUrl: '',
+        questionsCount: room.questions.length
+      });
+    }
   });
 
   socket.on('player-join', ({ pin, name }, callback) => {
