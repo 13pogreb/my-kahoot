@@ -1,15 +1,15 @@
 ﻿<!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>МОЇ ЛЮДИ kahoot — Экран Ведущего</title>
+  <title>МОЇ ЛЮДИ kahoot — Ведучий</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #46178f; color: #fff; margin: 0; padding: 20px; text-align: center; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #46178f; color: #fff; margin: 0; padding: 20px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; min-height: 95vh; }
     .brand { font-size: 38px; font-weight: bold; margin-bottom: 10px; letter-spacing: 2px; }
     .brand span { color: #f2a900; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto 20px auto; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto 20px auto; width: 100%; }
     .btn { background: #f2a900; color: #000; border: none; padding: 12px 24px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; text-decoration: none; display: inline-block; }
     .btn:hover { background: #ffc107; }
     .btn-secondary { background: #0f3460; color: #fff; }
@@ -19,7 +19,7 @@
     .players-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
     .player-chip { background: rgba(255, 255, 255, 0.2); padding: 8px 16px; border-radius: 20px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
     .player-chip:hover { background: #ff4757; }
-    .q-box { background: rgba(0, 0, 0, 0.3); padding: 20px; border-radius: 12px; max-width: 900px; margin: 0 auto; }
+    .q-box { background: rgba(0, 0, 0, 0.3); padding: 20px; border-radius: 12px; max-width: 900px; margin: 0 auto; width: 100%; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
     .opt { padding: 20px; border-radius: 8px; font-size: 22px; font-weight: bold; text-align: left; position: relative; }
     .red { background: #e21b3c; }
@@ -34,39 +34,41 @@
     .step-1 { height: 200px; background: #f2a900; color: #000; }
     .step-2 { height: 150px; background: #c0c0c0; color: #000; }
     .step-3 { height: 100px; background: #cd7f32; color: #000; }
+    .footer { font-size: 12px; opacity: 0.5; margin-top: 20px; letter-spacing: 1px; }
   </style>
 </head>
 <body>
   <div class="top-bar">
     <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
     <div>
-      <a href="/" class="btn btn-secondary" style="font-size:14px; margin-right: 5px;">🏠 Главное меню</a>
-      <button class="btn btn-secondary" onclick="toggleFullScreen()" style="font-size:14px;">🖥 Проектор</button>
-      <button class="btn" id="startBtn" onclick="nextQuestion()">ПОЕХАЛИ 🚀</button>
+      <button class="btn btn-secondary" onclick="toggleLang()" style="font-size:14px; margin-right: 5px;" id="langBtn">🌐 UA</button>
+      <a href="/" class="btn btn-secondary" style="font-size:14px; margin-right: 5px;" id="navHome">🏠 Головне меню</a>
+      <button class="btn btn-secondary" onclick="toggleFullScreen()" style="font-size:14px;" id="navProj">🖥 Проектор</button>
+      <button class="btn" id="startBtn" onclick="nextQuestion()">ПОЇХАЛИ 🚀</button>
       
       <span id="gameControls" style="display:none;">
-        <button class="btn btn-secondary" onclick="togglePause()">⏸ Пауза</button>
+        <button class="btn btn-secondary" onclick="togglePause()" id="btnPause">⏸ Пауза</button>
         <button class="btn btn-secondary" onclick="addTime(10)">+10с ⏱</button>
-        <button class="btn" onclick="forceEnd()" style="background:#ff4757; color:#fff;">Завершить ⏹</button>
+        <button class="btn" onclick="forceEnd()" style="background:#ff4757; color:#fff;" id="btnEnd">Завершити ⏹</button>
       </span>
     </div>
   </div>
 
   <div id="lobbyArea">
     <div class="qr-container">
-      <h2>Сканируй для входа!</h2>
+      <h2 id="qrTitle">Скануй для входу!</h2>
       <img id="qrImg" src="" alt="QR Code">
       <p id="playerUrlText" style="font-size:16px; font-weight:bold;"></p>
     </div>
-    <h2 style="margin-top: 25px;">Игроки (<span id="playerCount">0</span>):</h2>
+    <h2 style="margin-top: 25px;"><span id="pCountText">Гравці</span> (<span id="playerCount">0</span>):</h2>
     <div id="playersList" class="players-list"></div>
   </div>
 
   <div id="questionArea" class="q-box">
     <div style="display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; margin-bottom: 15px;">
-      <span id="qIndex">Вопрос 1</span>
+      <span id="qIndex">Питання 1</span>
       <span>⏱ <span id="timerText">20</span>с</span>
-      <span>Ответили: <span id="ansCount">0</span>/<span id="totalPlayersCount">0</span></span>
+      <span><span id="ansLbl">Відповіли:</span> <span id="ansCount">0</span>/<span id="totalPlayersCount">0</span></span>
     </div>
     <h2 id="qText" style="font-size: 28px;"></h2>
     <div id="imgContainer"></div>
@@ -74,18 +76,55 @@
   </div>
 
   <div id="leaderboardArea" class="q-box">
-    <h2 id="lbTitle" style="color: #f2a900; font-size: 32px;">🏆 ТАБЛИЦА ЛИДЕРОВ</h2>
+    <h2 id="lbTitle" style="color: #f2a900; font-size: 32px;">🏆 ТАБЛИЦЯ ЛІДЕРІВ</h2>
     <div id="podiumArea" class="podium" style="display:none;"></div>
     <div id="leaderboardList" style="margin-top: 20px;"></div>
     
     <div id="finalNavButtons" style="display: none; margin-top: 25px;">
-      <a href="/" class="btn btn-secondary">🏠 Главное меню</a>
-      <button class="btn" onclick="location.reload()">🔄 Начать заново</button>
+      <a href="/" class="btn btn-secondary" id="endHome">🏠 Головне меню</a>
+      <button class="btn" onclick="location.reload()" id="endReset">🔄 Спочатку</button>
     </div>
   </div>
 
+  <div class="footer">by pogrebnyak</div>
+
   <script>
     const socket = io();
+    let currentLang = localStorage.getItem('appLang') || 'UA';
+
+    const t = {
+      UA: {
+        home: '🏠 Головне меню', proj: '🖥 Проектор', start: 'ПОЇХАЛИ 🚀', next: 'Наступне питання ➡️',
+        pause: '⏸ Пауза', end: 'Завершити ⏹', qr: 'Скануй для входу!', players: 'Гравці',
+        q: 'Питання', ans: 'Відповіли:', lb: '🏆 ТАБЛИЦЯ ЛІДЕРІВ', fin: '🏆 ФІНАЛЬНІ ПІДСУМКИ ІГРИ',
+        reset: '🔄 Спочатку', rest: 'Інші учасники:'
+      },
+      RU: {
+        home: '🏠 Главное меню', proj: '🖥 Проектор', start: 'ПОЕХАЛИ 🚀', next: 'Следующий вопрос ➡️',
+        pause: '⏸ Пауза', end: 'Завершить ⏹', qr: 'Сканируй для входа!', players: 'Игроки',
+        q: 'Вопрос', ans: 'Ответили:', lb: '🏆 ТАБЛИЦА ЛИДЕРОВ', fin: '🏆 ФИНАЛЬНЫЕ ИТОГИ ИГРЫ',
+        reset: '🔄 Начать заново', rest: 'Остальные участники:'
+      }
+    };
+
+    function updateLangUI() {
+      document.getElementById('langBtn').innerText = '🌐 ' + currentLang;
+      document.getElementById('navHome').innerText = t[currentLang].home;
+      document.getElementById('endHome').innerText = t[currentLang].home;
+      document.getElementById('navProj').innerText = t[currentLang].proj;
+      document.getElementById('btnPause').innerText = t[currentLang].pause;
+      document.getElementById('btnEnd').innerText = t[currentLang].end;
+      document.getElementById('qrTitle').innerText = t[currentLang].qr;
+      document.getElementById('pCountText').innerText = t[currentLang].players;
+      document.getElementById('ansLbl').innerText = t[currentLang].ans;
+      document.getElementById('endReset').innerText = t[currentLang].reset;
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'UA' ? 'RU' : 'UA';
+      localStorage.setItem('appLang', currentLang);
+      updateLangUI();
+    }
 
     socket.emit('host-join');
 
@@ -108,39 +147,25 @@
         chip.className = 'player-chip';
         chip.innerText = p.name;
         chip.onclick = () => {
-          if (confirm(`Удалить игрока "${p.name}"?`)) {
-            socket.emit('kick-player', p.id);
-          }
+          if (confirm(`Удалить "${p.name}"?`)) socket.emit('kick-player', p.id);
         };
         list.appendChild(chip);
       });
     }
 
-    function nextQuestion() {
-      socket.emit('next-question');
-    }
-
-    function forceEnd() {
-      socket.emit('force-end-question');
-    }
-
-    function togglePause() {
-      socket.emit('toggle-pause');
-    }
-
-    function addTime(sec) {
-      socket.emit('add-time', sec);
-    }
+    function nextQuestion() { socket.emit('next-question'); }
+    function forceEnd() { socket.emit('force-end-question'); }
+    function togglePause() { socket.emit('toggle-pause'); }
+    function addTime(sec) { socket.emit('add-time', sec); }
 
     socket.on('show-question', (data) => {
       document.getElementById('lobbyArea').style.display = 'none';
       document.getElementById('leaderboardArea').style.display = 'none';
       document.getElementById('questionArea').style.display = 'block';
-      
       document.getElementById('startBtn').style.display = 'none';
       document.getElementById('gameControls').style.display = 'inline-block';
 
-      document.getElementById('qIndex').innerText = `Вопрос ${data.questionIndex} из ${data.totalQuestions}`;
+      document.getElementById('qIndex').innerText = `${t[currentLang].q} ${data.questionIndex} / ${data.totalQuestions}`;
       document.getElementById('qText').innerText = data.question;
       document.getElementById('timerText').innerText = data.timeLimit;
       document.getElementById('ansCount').innerText = '0';
@@ -148,14 +173,21 @@
       const imgDiv = document.getElementById('imgContainer');
       imgDiv.innerHTML = data.image ? `<img src="${data.image}" style="max-height: 250px; border-radius: 8px; margin-bottom: 15px;">` : '';
 
-      const colors = ['red', 'blue', 'yellow', 'green'];
+      const colors = ['blue', 'red', 'yellow', 'green'];
       const grid = document.getElementById('optionsGrid');
       grid.innerHTML = '';
+
+      if (data.type === 'true_false') {
+        grid.style.gridTemplateColumns = '1fr 1fr';
+      } else {
+        grid.style.gridTemplateColumns = '1fr 1fr';
+      }
+
       data.options.forEach((opt, idx) => {
         const div = document.createElement('div');
         div.className = `opt ${colors[idx]}`;
         div.id = `opt-${idx}`;
-        div.innerHTML = `<div>${opt}</div><div class="stat-bar" id="bar-${idx}"></div><div id="count-${idx}" style="font-size:14px; margin-top:4px; display:none;">0 ответов</div>`;
+        div.innerHTML = `<div>${opt}</div><div class="stat-bar" id="bar-${idx}"></div><div id="count-${idx}" style="font-size:14px; margin-top:4px; display:none;">0</div>`;
         grid.appendChild(div);
       });
     });
@@ -172,28 +204,32 @@
     socket.on('question-ended', (data) => {
       document.getElementById('gameControls').style.display = 'none';
       document.getElementById('startBtn').style.display = 'inline-block';
-      document.getElementById('startBtn').innerText = 'Следующий вопрос ➡️';
+      document.getElementById('startBtn').innerText = t[currentLang].next;
 
       const totalAnswers = data.stats.reduce((a, b) => a + b, 0) || 1;
       data.stats.forEach((cnt, idx) => {
-        const pct = Math.round((cnt / totalAnswers) * 100);
-        document.getElementById(`bar-${idx}`).style.width = `${pct}%`;
-        const countLbl = document.getElementById(`count-${idx}`);
-        countLbl.innerText = `${cnt} чел. (${pct}%)`;
-        countLbl.style.display = 'block';
+        const bar = document.getElementById(`bar-${idx}`);
+        if (bar) {
+          const pct = Math.round((cnt / totalAnswers) * 100);
+          bar.style.width = `${pct}%`;
+          const countLbl = document.getElementById(`count-${idx}`);
+          countLbl.innerText = `${cnt} (${pct}%)`;
+          countLbl.style.display = 'block';
+        }
       });
 
       if (data.showLeaderboard) {
         setTimeout(() => {
           document.getElementById('questionArea').style.display = 'none';
           document.getElementById('leaderboardArea').style.display = 'block';
+          document.getElementById('lbTitle').innerText = t[currentLang].lb;
           
           const lbList = document.getElementById('leaderboardList');
           lbList.innerHTML = '';
           data.leaderboard.slice(0, 5).forEach((p, idx) => {
             const row = document.createElement('div');
             row.className = 'leader-row';
-            row.innerHTML = `<span>${idx + 1}. ${p.name}</span> <strong>${p.score} очков</strong>`;
+            row.innerHTML = `<span>${idx + 1}. ${p.name}</span> <strong>${p.score}</strong>`;
             lbList.appendChild(row);
           });
         }, 2500);
@@ -204,42 +240,33 @@
       document.getElementById('questionArea').style.display = 'none';
       document.getElementById('leaderboardArea').style.display = 'block';
       document.getElementById('startBtn').style.display = 'none';
-      document.getElementById('lbTitle').innerText = '🏆 ФИНАЛЬНЫЕ ИТОГИ ИГРЫ';
+      document.getElementById('lbTitle').innerText = t[currentLang].fin;
       document.getElementById('finalNavButtons').style.display = 'block';
 
       const podium = document.getElementById('podiumArea');
       podium.style.display = 'flex';
       podium.innerHTML = '';
 
-      if (leaderboard[1]) {
-        podium.innerHTML += `<div class="podium-step step-2">🥈 2 Место<br>${leaderboard[1].name}<br>${leaderboard[1].score}</div>`;
-      }
-      if (leaderboard[0]) {
-        podium.innerHTML += `<div class="podium-step step-1">🥇 1 Место<br>${leaderboard[0].name}<br>${leaderboard[0].score}</div>`;
-      }
-      if (leaderboard[2]) {
-        podium.innerHTML += `<div class="podium-step step-3">🥉 3 Место<br>${leaderboard[2].name}<br>${leaderboard[2].score}</div>`;
-      }
+      if (leaderboard[1]) podium.innerHTML += `<div class="podium-step step-2">🥈 2<br>${leaderboard[1].name}<br>${leaderboard[1].score}</div>`;
+      if (leaderboard[0]) podium.innerHTML += `<div class="podium-step step-1">🥇 1<br>${leaderboard[0].name}<br>${leaderboard[0].score}</div>`;
+      if (leaderboard[2]) podium.innerHTML += `<div class="podium-step step-3">🥉 3<br>${leaderboard[2].name}<br>${leaderboard[2].score}</div>`;
 
       const lbList = document.getElementById('leaderboardList');
-      lbList.innerHTML = '<h3>Остальные участники:</h3>';
+      lbList.innerHTML = `<h3>${t[currentLang].rest}</h3>`;
       leaderboard.slice(3).forEach((p, idx) => {
         const row = document.createElement('div');
         row.className = 'leader-row';
-        row.innerHTML = `<span>${idx + 4}. ${p.name}</span> <strong>${p.score} очков</strong>`;
+        row.innerHTML = `<span>${idx + 4}. ${p.name}</span> <strong>${p.score}</strong>`;
         lbList.appendChild(row);
       });
     });
 
     function toggleFullScreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        }
-      }
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else if (document.exitFullscreen) document.exitFullscreen();
     }
+
+    updateLangUI();
   </script>
 </body>
 </html>

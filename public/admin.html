@@ -1,9 +1,9 @@
 ﻿<!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>МОЇ ЛЮДИ kahoot — Админка</title>
+  <title>МОЇ ЛЮДИ kahoot — Адмінка</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #fff; margin: 0; padding: 20px; }
     .container { max-width: 850px; margin: 0 auto; background: #16213e; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -16,13 +16,14 @@
     .action-bar button, .action-bar label { flex: 1; text-align: center; }
     .form-group { margin-bottom: 15px; }
     label { display: block; margin-bottom: 5px; font-weight: bold; }
-    input[type="text"], input[type="number"], input[type="file"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #0f3460; background: #0f3460; color: #fff; box-sizing: border-box; }
+    input[type="text"], input[type="number"], input[type="file"], select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #0f3460; background: #0f3460; color: #fff; box-sizing: border-box; }
     .btn { background: #e94560; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
     .btn-secondary { background: #0f3460; border: 1px solid #e94560; }
     .question-card { background: #0f3460; padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; }
     .controls-btn-group { position: absolute; top: 15px; right: 15px; display: flex; gap: 5px; }
     .icon-btn { background: #16213e; color: #fff; border: 1px solid #e94560; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
     .icon-btn:hover { background: #e94560; }
+    .footer { text-align: center; font-size: 12px; opacity: 0.5; margin-top: 25px; letter-spacing: 1px; }
   </style>
 </head>
 <body>
@@ -30,57 +31,92 @@
     <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
 
     <div class="nav-bar">
-      <a href="/" class="nav-btn" style="background:#0f3460; border: 1px solid #e94560;">🏠 Главное меню</a>
-      <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Экран Ведущего</a>
-      <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Экран Игрока</a>
+      <a href="/" class="nav-btn" style="background:#0f3460; border: 1px solid #e94560;">🏠 Головне меню</a>
+      <a href="/host.html" target="_blank" class="nav-btn" style="background:#26890c;">🚀 Екран Ведучого</a>
+      <a href="/player.html" target="_blank" class="nav-btn" style="background:#0f3460; border: 1px solid #26890c;">📱 Екран Гравця</a>
     </div>
 
     <div class="action-bar">
-      <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачать викторину (.json)</button>
+      <button class="btn btn-secondary" onclick="exportQuiz()">💾 Скачати вікторину (.json)</button>
       <label class="btn btn-secondary" style="margin:0; cursor:pointer;">
-        📂 Загрузить викторину с ПК
+        📂 Завантажити з ПК
         <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importQuiz(event)">
       </label>
-      <button class="btn" style="background:#ff4757;" onclick="clearQuiz()">🗑 Очистить всё</button>
+      <button class="btn" style="background:#ff4757;" onclick="clearQuiz()">🗑 Очистити все</button>
     </div>
 
-    <h2>Добавить новый вопрос</h2>
+    <h2>Додати нове питання</h2>
     <form id="addQuestionForm" enctype="multipart/form-data">
       <div class="form-group">
-        <label>Вопрос:</label>
-        <input type="text" id="questionText" required placeholder="Введите текст вопроса">
+        <label>Тип питания:</label>
+        <select id="qType" onchange="toggleTypeFields()">
+          <option value="quiz">Викторина (4 варианта)</option>
+          <option value="true_false">Правда / Ложь (2 варианта)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Текст питання:</label>
+        <input type="text" id="questionText" required placeholder="Введіть питання">
       </div>
       <div class="form-group">
-        <label>Картинка (необязательно):</label>
+        <label>Картинка (необов'язково):</label>
         <input type="file" id="imageFile" accept="image/*">
       </div>
       <div class="form-group">
-        <label>Время на ответ (сек):</label>
+        <label>Час на відповідь (сек):</label>
         <input type="number" id="timeLimit" value="20" required>
       </div>
-      <div class="form-group"><label>Вариант 1 (Красный):</label><input type="text" id="opt0" required></div>
-      <div class="form-group"><label>Вариант 2 (Синий):</label><input type="text" id="opt1" required></div>
-      <div class="form-group"><label>Вариант 3 (Жёлтый):</label><input type="text" id="opt2" required></div>
-      <div class="form-group"><label>Вариант 4 (Зелёный):</label><input type="text" id="opt3" required></div>
+
+      <!-- Варианты для классической викторины -->
+      <div id="quizOptionsBlock">
+        <div class="form-group"><label>Варіант 1 (Червоний):</label><input type="text" id="opt0" value="Вариант 1"></div>
+        <div class="form-group"><label>Варіант 2 (Синій):</label><input type="text" id="opt1" value="Вариант 2"></div>
+        <div class="form-group"><label>Варіант 3 (Жовтий):</label><input type="text" id="opt2" value="Вариант 3"></div>
+        <div class="form-group"><label>Варіант 4 (Зелений):</label><input type="text" id="opt3" value="Вариант 4"></div>
+      </div>
+
       <div class="form-group">
-        <label>Правильный ответ:</label>
-        <select id="correctIndex" style="width:100%; padding:10px; background:#0f3460; color:#fff; border-radius:6px;">
-          <option value="0">Вариант 1</option>
-          <option value="1">Вариант 2</option>
-          <option value="2">Вариант 3</option>
-          <option value="3">Вариант 4</option>
+        <label>Правильна відповідь:</label>
+        <select id="correctIndex">
+          <!-- Заполняется динамически -->
         </select>
       </div>
-      <button type="submit" class="btn" style="width:100%;">Сохранить вопрос</button>
+
+      <button type="submit" class="btn" style="width:100%;">Зберегти питання</button>
     </form>
 
     <hr style="margin: 30px 0; border-color: #0f3460;">
-    <h2>Вопросы в текущей викторине</h2>
+    <h2>Питання у поточній вікторині</h2>
     <div id="questionsList"></div>
+
+    <div class="footer">by pogrebnyak</div>
   </div>
 
   <script>
     let currentQuestions = [];
+
+    function toggleTypeFields() {
+      const type = document.getElementById('qType').value;
+      const quizBlock = document.getElementById('quizOptionsBlock');
+      const correctSelect = document.getElementById('correctIndex');
+
+      if (type === 'true_false') {
+        quizBlock.style.display = 'none';
+        correctSelect.innerHTML = `
+          <option value="0">Правда (Синий)</option>
+          <option value="1">Ложь (Красный)</option>
+        `;
+      } else {
+        quizBlock.style.display = 'block';
+        correctSelect.innerHTML = `
+          <option value="0">Вариант 1 (Красный)</option>
+          <option value="1">Вариант 2 (Синий)</option>
+          <option value="2">Вариант 3 (Желтый)</option>
+          <option value="3">Вариант 4 (Зеленый)</option>
+        `;
+      }
+    }
 
     async function loadQuestions() {
       const res = await fetch('/api/questions');
@@ -94,6 +130,7 @@
       currentQuestions.forEach((q, idx) => {
         const card = document.createElement('div');
         card.className = 'question-card';
+        const isTF = q.type === 'true_false';
         card.innerHTML = `
           <div class="controls-btn-group">
             <button class="icon-btn" onclick="moveQuestion(${idx}, -1)">🔼</button>
@@ -101,10 +138,10 @@
             <button class="icon-btn" onclick="cloneQuestion(${idx})">📋</button>
             <button class="icon-btn" style="border-color:#ff4757;" onclick="deleteQuestion(${q.id})">❌</button>
           </div>
-          <h3>${idx + 1}. ${q.question}</h3>
+          <h3>${idx + 1}. [${isTF ? 'Правда/Ложь' : 'Викторина'}] ${q.question}</h3>
           ${q.image ? `<img src="${q.image}" style="max-width:100%; max-height:150px; border-radius:6px; margin-bottom:10px;">` : ''}
-          <p><strong>Ответы:</strong> 1) ${q.options[0]} | 2) ${q.options[1]} | 3) ${q.options[2]} | 4) ${q.options[3]}</p>
-          <p><strong>Правильный:</strong> Вариант ${q.correctIndex + 1} | <strong>Время:</strong> ${q.timeLimit}с</p>
+          <p><strong>Відповіді:</strong> ${q.options.join(' | ')}</p>
+          <p><strong>Правильный:</strong> ${q.options[q.correctIndex]} | <strong>Час:</strong> ${q.timeLimit}с</p>
         `;
         container.appendChild(card);
       });
@@ -127,7 +164,7 @@
 
     async function cloneQuestion(index) {
       const q = currentQuestions[index];
-      const cloned = { ...q, id: Date.now(), question: q.question + ' (Копия)' };
+      const cloned = { ...q, id: Date.now(), question: q.question + ' (Копія)' };
       currentQuestions.push(cloned);
       await fetch('/api/questions/reorder', {
         method: 'POST',
@@ -140,6 +177,7 @@
     document.getElementById('addQuestionForm').onsubmit = async (e) => {
       e.preventDefault();
       const formData = new FormData();
+      formData.append('type', document.getElementById('qType').value);
       formData.append('question', document.getElementById('questionText').value);
       formData.append('timeLimit', document.getElementById('timeLimit').value);
       formData.append('opt0', document.getElementById('opt0').value);
@@ -155,11 +193,12 @@
 
       await fetch('/api/questions', { method: 'POST', body: formData });
       document.getElementById('addQuestionForm').reset();
+      toggleTypeFields();
       loadQuestions();
     };
 
     async function deleteQuestion(id) {
-      if (confirm('Удалить этот вопрос?')) {
+      if (confirm('Видалити питання?')) {
         await fetch(`/api/questions/${id}`, { method: 'DELETE' });
         loadQuestions();
       }
@@ -182,23 +221,23 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ questions })
           });
-          alert('Викторина успешно загружена!');
+          alert('Успішно завантажено!');
           loadQuestions();
         } catch (err) {
-          alert('Ошибка при чтении файла! Проверьте формат .json');
+          alert('Помилка при читанні .json!');
         }
       };
       reader.readAsText(file);
     }
 
     async function clearQuiz() {
-      if (confirm('Очистить все текущие вопросы?')) {
+      if (confirm('Очистити всі питання?')) {
         await fetch('/api/questions/clear', { method: 'DELETE' });
         loadQuestions();
       }
     }
 
-    // Загрузка вопросов при открытии админки
+    toggleTypeFields();
     loadQuestions();
   </script>
 </body>

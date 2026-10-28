@@ -1,51 +1,49 @@
 ﻿<!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>МОЇ ЛЮДИ kahoot — Игрок</title>
+  <title>МОЇ ЛЮДИ kahoot — Гравець</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #46178f; color: #fff; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
-    .brand { font-size: 32px; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #46178f; color: #fff; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 100vh; text-align: center; }
+    .brand { font-size: 32px; font-weight: bold; margin-top: 20px; letter-spacing: 1px; }
     .brand span { color: #f2a900; }
-    .card { background: rgba(255, 255, 255, 0.1); padding: 25px; border-radius: 12px; width: 85%; max-width: 400px; backdrop-filter: blur(10px); }
+    .lang-picker { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    .card { background: rgba(255, 255, 255, 0.1); padding: 25px; border-radius: 12px; width: 85%; max-width: 400px; backdrop-filter: blur(10px); margin: auto; }
     input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: none; font-size: 18px; text-align: center; box-sizing: border-box; }
     .btn { background: #333; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 90%; max-width: 500px; margin-top: 20px; }
-    .ans-btn { height: 120px; border-radius: 8px; border: none; cursor: pointer; transition: transform 0.1s; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 90%; max-width: 500px; margin: 20px auto; }
+    .ans-btn { height: 120px; border-radius: 8px; border: none; cursor: pointer; transition: transform 0.1s; font-size: 22px; font-weight: bold; color: #fff; display: flex; align-items: center; justify-content: center; }
     .ans-btn:active { transform: scale(0.95); }
-    .red { background: #e21b3c; }
     .blue { background: #1368ce; }
+    .red { background: #e21b3c; }
     .yellow { background: #d89e00; }
     .green { background: #26890c; }
     #gameScreen, #waitingScreen, #resultScreen { display: none; }
+    .footer { font-size: 12px; opacity: 0.5; margin-bottom: 15px; letter-spacing: 1px; }
   </style>
 </head>
 <body>
+  <div class="lang-picker" onclick="toggleLang()"><span id="langLabel">🌐 UA</span></div>
   <div class="brand">МОЇ ЛЮДИ <span>kahoot</span></div>
 
   <div id="loginScreen" class="card">
-    <h2>Вход в игру</h2>
+    <h2 id="loginTitle">Вхід у гру</h2>
     <input type="text" id="pinInput" placeholder="PIN код (1234)">
-    <input type="text" id="nameInput" placeholder="Ваше имя">
-    <button class="btn" style="background: #26890c;" onclick="joinGame()">ПОЕХАЛИ</button>
+    <input type="text" id="nameInput" placeholder="Ваше ім'я">
+    <button class="btn" style="background: #26890c;" onclick="joinGame()" id="joinBtn">ПОЇХАЛИ</button>
     <p id="loginErr" style="color: #ff4757; margin-top: 10px;"></p>
   </div>
 
   <div id="waitingScreen" class="card">
-    <h2 id="waitTitle">Вы в игре!</h2>
-    <p id="waitSub">Смотрите на главный экран...</p>
+    <h2 id="waitTitle">Ви в грі!</h2>
+    <p id="waitSub">Дивіться на головний екран...</p>
   </div>
 
-  <div id="gameScreen">
-    <h3 id="qIndexText" style="margin-bottom: 10px;">Вопрос 1</h3>
-    <div class="grid">
-      <button class="ans-btn red" onclick="submitAnswer(0)"></button>
-      <button class="ans-btn blue" onclick="submitAnswer(1)"></button>
-      <button class="ans-btn yellow" onclick="submitAnswer(2)"></button>
-      <button class="ans-btn green" onclick="submitAnswer(3)"></button>
-    </div>
+  <div id="gameScreen" style="width:100%;">
+    <h3 id="qIndexText" style="margin-bottom: 10px;">Питання 1</h3>
+    <div class="grid" id="playerGrid"></div>
   </div>
 
   <div id="resultScreen" class="card">
@@ -54,13 +52,50 @@
     <h2 id="resRank" style="color:#f2a900; margin-top:15px;"></h2>
   </div>
 
+  <div class="footer">by pogrebnyak</div>
+
   <script>
     const socket = io();
+    let currentLang = localStorage.getItem('appLang') || 'UA';
+
+    const t = {
+      UA: {
+        title: 'Вхід у гру', name: "Ваше ім'я", join: 'ПОЇХАЛИ', waitTitle: 'Ви в грі!',
+        waitSub: 'Дивіться на головний екран...', accepted: 'Відповідь прийнято!',
+        waitOthers: 'Чекаємо інших гравців...', correct: '🔥 ПРАВИЛЬНО!', wrong: '❌ НЕВГАДАВ',
+        score: 'Ваші бали:', rank: 'Ви на', of: 'місці з', roundEnd: 'Раунд завершено',
+        overTitle: '🏆 Гра закінчена!', overSub: 'Дякуємо за участь!',
+        trueTxt: 'Правда', falseTxt: 'Неправда'
+      },
+      RU: {
+        title: 'Вход в игру', name: 'Ваше имя', join: 'ПОЕХАЛИ', waitTitle: 'Вы в игре!',
+        waitSub: 'Смотрите на главный экран...', accepted: 'Ответ принят!',
+        waitOthers: 'Ждём остальных игроков...', correct: '🔥 ПРАВИЛЬНО!', wrong: '❌ НЕУГАДАЛ',
+        score: 'Ваши очки:', rank: 'Вы на', of: 'месте из', roundEnd: 'Раунд завершен',
+        overTitle: '🏆 Игра окончена!', overSub: 'Спасибо за участие!',
+        trueTxt: 'Правда', falseTxt: 'Ложь'
+      }
+    };
+
+    function updateLangUI() {
+      document.getElementById('langLabel').innerText = '🌐 ' + currentLang;
+      document.getElementById('loginTitle').innerText = t[currentLang].title;
+      document.getElementById('nameInput').placeholder = t[currentLang].name;
+      document.getElementById('joinBtn').innerText = t[currentLang].join;
+      document.getElementById('waitTitle').innerText = t[currentLang].waitTitle;
+      document.getElementById('waitSub').innerText = t[currentLang].waitSub;
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'UA' ? 'RU' : 'UA';
+      localStorage.setItem('appLang', currentLang);
+      updateLangUI();
+    }
 
     function joinGame() {
       const pin = document.getElementById('pinInput').value;
       const name = document.getElementById('nameInput').value;
-      if (!name) return alert('Введите имя!');
+      if (!name) return alert('Введіть ім\'я!');
 
       socket.emit('player-join', { pin, name }, (res) => {
         if (res.success) {
@@ -76,42 +111,61 @@
       document.getElementById('waitingScreen').style.display = 'none';
       document.getElementById('resultScreen').style.display = 'none';
       document.getElementById('gameScreen').style.display = 'block';
-      document.getElementById('qIndexText').innerText = `Вопрос ${data.questionIndex}`;
+      document.getElementById('qIndexText').innerText = `Питання ${data.questionIndex}`;
+
+      const grid = document.getElementById('playerGrid');
+      grid.innerHTML = '';
+
+      if (data.type === 'true_false') {
+        grid.style.gridTemplateColumns = '1fr 1fr';
+        grid.innerHTML = `
+          <button class="ans-btn blue" onclick="submitAnswer(0)">${t[currentLang].trueTxt}</button>
+          <button class="ans-btn red" onclick="submitAnswer(1)">${t[currentLang].falseTxt}</button>
+        `;
+      } else {
+        grid.style.gridTemplateColumns = '1fr 1fr';
+        grid.innerHTML = `
+          <button class="ans-btn red" onclick="submitAnswer(0)"></button>
+          <button class="ans-btn blue" onclick="submitAnswer(1)"></button>
+          <button class="ans-btn yellow" onclick="submitAnswer(2)"></button>
+          <button class="ans-btn green" onclick="submitAnswer(3)"></button>
+        `;
+      }
     });
 
     function submitAnswer(idx) {
       socket.emit('submit-answer', { optionIndex: idx });
       document.getElementById('gameScreen').style.display = 'none';
       document.getElementById('waitingScreen').style.display = 'block';
-      document.getElementById('waitTitle').innerText = 'Ответ принят!';
-      document.getElementById('waitSub').innerText = 'Ждём остальных игроков...';
+      document.getElementById('waitTitle').innerText = t[currentLang].accepted;
+      document.getElementById('waitSub').innerText = t[currentLang].waitOthers;
     }
 
     socket.on('answer-result', (data) => {
       document.getElementById('waitingScreen').style.display = 'none';
       document.getElementById('resultScreen').style.display = 'block';
       if (data.isCorrect) {
-        document.getElementById('resTitle').innerText = '🔥 ПРАВИЛЬНО!';
+        document.getElementById('resTitle').innerText = t[currentLang].correct;
         document.getElementById('resTitle').style.color = '#26890c';
       } else {
-        document.getElementById('resTitle').innerText = '❌ НЕУГАДАЛ';
+        document.getElementById('resTitle').innerText = t[currentLang].wrong;
         document.getElementById('resTitle').style.color = '#e21b3c';
       }
-      document.getElementById('resScore').innerText = `Ваши очки: ${data.score}`;
-      document.getElementById('resRank').innerText = `Вы на ${data.rank} месте из ${data.total}!`;
+      document.getElementById('resScore').innerText = `${t[currentLang].score} ${data.score}`;
+      document.getElementById('resRank').innerText = `${t[currentLang].rank} ${data.rank} ${t[currentLang].of} ${data.total}!`;
     });
 
     socket.on('round-ended', () => {
       setTimeout(() => {
         document.getElementById('resultScreen').style.display = 'none';
         document.getElementById('waitingScreen').style.display = 'block';
-        document.getElementById('waitTitle').innerText = 'Раунд завершен';
-        document.getElementById('waitSub').innerText = 'Внимание на главный экран!';
+        document.getElementById('waitTitle').innerText = t[currentLang].roundEnd;
+        document.getElementById('waitSub').innerText = t[currentLang].waitSub;
       }, 2000);
     });
 
     socket.on('kicked', () => {
-      alert('Вы были удалены ведущим из комнаты!');
+      alert('Ви були видалені ведучим!');
       location.reload();
     });
 
@@ -119,9 +173,11 @@
       document.getElementById('waitingScreen').style.display = 'block';
       document.getElementById('resultScreen').style.display = 'none';
       document.getElementById('gameScreen').style.display = 'none';
-      document.getElementById('waitTitle').innerText = '🏆 Игра окончена!';
-      document.getElementById('waitSub').innerText = 'Спасибо за участие!';
+      document.getElementById('waitTitle').innerText = t[currentLang].overTitle;
+      document.getElementById('waitSub').innerText = t[currentLang].overSub;
     });
+
+    updateLangUI();
   </script>
 </body>
 </html>

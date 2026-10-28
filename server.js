@@ -80,10 +80,20 @@ app.post('/api/questions', upload.single('image'), async (req, res) => {
     }
   }
 
+  const qType = req.body.type || 'quiz';
+  let options = [];
+
+  if (qType === 'true_false') {
+    options = ['Правда', 'Неправда'];
+  } else {
+    options = [req.body.opt0, req.body.opt1, req.body.opt2, req.body.opt3];
+  }
+
   const newQuestion = {
     id: Date.now(),
+    type: qType,
     question: req.body.question,
-    options: [req.body.opt0, req.body.opt1, req.body.opt2, req.body.opt3],
+    options: options,
     correctIndex: parseInt(req.body.correctIndex, 10),
     timeLimit: parseInt(req.body.timeLimit, 10) || 20,
     image: imageUrl
@@ -185,6 +195,7 @@ io.on('connection', (socket) => {
     Object.values(gameState.players).forEach(p => p.hasAnswered = false);
 
     io.to('host').emit('show-question', {
+      type: q.type || 'quiz',
       question: q.question,
       image: q.image,
       options: q.options,
@@ -195,6 +206,7 @@ io.on('connection', (socket) => {
     });
 
     io.to('players').emit('show-question-player', {
+      type: q.type || 'quiz',
       questionIndex: gameState.currentQuestionIndex + 1,
       optionsCount: q.options.length,
       timeLimit: gameState.timeLeft
