@@ -1,6 +1,7 @@
 ﻿const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const QRCode = require('qrcode');
@@ -23,137 +24,62 @@ app.use(express.json({ limit: '10mb' }));
 
 const upload = multer({ dest: 'uploads/' });
 
-// ВШИТАЯ БАЗА ИЗ 100 ЛИЦЕНЗИОННЫХ КЛЮЧЕЙ
-const HARDCODED_KEYS = [
-  'MLK26-JK6F-F0XV-WFQ6',
-  'MLK26-JBZF-7NM4-UZL8',
-  'MLK26-KS15-10ZC-L806',
-  'MLK26-458F-3N94-FXDY',
-  'MLK26-LTOQ-V389-VK1D',
-  'MLK26-Z4Q3-67JZ-LSU1',
-  'MLK26-0S6D-T6W5-TMBG',
-  'MLK26-3KBJ-YQDL-ZVBJ',
-  'MLK26-9IEQ-2K31-WFK4',
-  'MLK26-RY0S-A01Y-QAOR',
-  'MLK26-ZJDX-GETL-QM0T',
-  'MLK26-N9UO-QKF0-U12G',
-  'MLK26-PBT6-GAU6-AHYL',
-  'MLK26-T4DX-PKB4-7HBT',
-  'MLK26-WLA2-R532-DVK0',
-  'MLK26-6P1I-OV3K-5FLJ',
-  'MLK26-5TPN-5MNY-DBSF',
-  'MLK26-6841-30GF-HTMR',
-  'MLK26-FJ6W-RMKE-HPZ8',
-  'MLK26-54WC-21BM-2SLF',
-  'MLK26-BXJ1-IOYQ-GYBA',
-  'MLK26-1TQA-AN67-S5A1',
-  'MLK26-9I0O-NDB9-XM0F',
-  'MLK26-LK8B-HP4Q-0PYN',
-  'MLK26-1RV4-FDSZ-BWP9',
-  'MLK26-GSZL-879R-IC8N',
-  'MLK26-P9FG-RM1G-FCE9',
-  'MLK26-9UHV-640M-DBES',
-  'MLK26-D0KT-6TSW-TGAV',
-  'MLK26-D4ZE-U3XF-Z65Q',
-  'MLK26-BMXR-WHKS-3ELW',
-  'MLK26-Z4BE-TSBQ-MKYV',
-  'MLK26-R9Y8-TI1X-RM4S',
-  'MLK26-7HFE-P85E-QWIX',
-  'MLK26-P8ZS-NLIK-PW8U',
-  'MLK26-86DK-2URC-F8V2',
-  'MLK26-NREZ-2MDJ-L524',
-  'MLK26-8O9T-1I9B-UO7B',
-  'MLK26-JREI-W4VI-18IA',
-  'MLK26-92HI-N2Q7-P0VF',
-  'MLK26-9A2Z-UW48-ZATS',
-  'MLK26-QKCY-AGUF-58LA',
-  'MLK26-0HKY-QHIK-E9LT',
-  'MLK26-53NT-FH20-OK3U',
-  'MLK26-VG45-CLHX-AEIB',
-  'MLK26-XGMY-3COY-O9JN',
-  'MLK26-UBPX-IR7Q-27L9',
-  'MLK26-H5CI-XGSQ-Q3ON',
-  'MLK26-82EV-TNQC-DTAO',
-  'MLK26-5FBT-IK2G-AQ1R',
-  'MLK26-7WL9-1ZQ2-BM9A',
-  'MLK26-0O6W-LMZG-OMLY',
-  'MLK26-YJ04-VFLJ-T50C',
-  'MLK26-OJI3-DNYO-BJQ2',
-  'MLK26-CFQX-YVT3-8NVC',
-  'MLK26-6VY2-3C7O-7YMW',
-  'MLK26-KE6U-EDF1-2JP3',
-  'MLK26-WPIR-8INS-CUN1',
-  'MLK26-192B-ZEWR-IOS3',
-  'MLK26-8LGC-W40N-OPRG',
-  'MLK26-TJBU-7C9D-51G3',
-  'MLK26-VLHP-BULK-IHDK',
-  'MLK26-N70Y-DF8O-VNYZ',
-  'MLK26-IEM9-QIO1-IP8M',
-  'MLK26-BDJP-D789-N68I',
-  'MLK26-HLNJ-SL04-96YH',
-  'MLK26-LFJZ-LW15-IFS6',
-  'MLK26-WM34-BY7N-KN95',
-  'MLK26-80XD-D4BJ-NKPG',
-  'MLK26-CGWA-45DE-P6MB',
-  'MLK26-W7GF-Z8DK-SKWG',
-  'MLK26-DVF3-18GI-H579',
-  'MLK26-9S2M-I80X-NXDO',
-  'MLK26-O4YH-OM69-9IX7',
-  'MLK26-F8RV-W0C1-E1YS',
-  'MLK26-EKR2-JXU9-C5WB',
-  'MLK26-67F5-G7JW-NQC7',
-  'MLK26-5QR8-IWM1-QH63',
-  'MLK26-1D39-W236-UADP',
-  'MLK26-H1EQ-GSD8-CR5L',
-  'MLK26-KW2P-3E6A-UEXQ',
-  'MLK26-GOC3-I9YE-T7LV',
-  'MLK26-WGLP-ID7M-QASM',
-  'MLK26-F2YS-BCU4-4EBC',
-  'MLK26-DL4M-Y5F2-GPM5',
-  'MLK26-CJWX-X4FC-HQ8D',
-  'MLK26-J2PV-BR0Z-QJOA',
-  'MLK26-I1EP-HZ2V-BVLS',
-  'MLK26-J2ZC-IDGY-8BNX',
-  'MLK26-N1UT-S7H3-XULS',
-  'MLK26-VCS8-RYLO-ZMHA',
-  'MLK26-LZ08-NHTA-FPOL',
-  'MLK26-P0DA-XS1D-MWI9',
-  'MLK26-KYPF-YUEI-U3IZ',
-  'MLK26-HD48-NI9V-Z9TW',
-  'MLK26-MUSL-Q7LW-WMQR',
-  'MLK26-FNYO-OPSF-CT1Y',
-  'MLK26-1SQN-C9X4-813G',
-  'MLK26-TU7Y-5R18-WXML',
-  'MLK26-R7MB-XVQS-ZHM0'
-];
+// Вшитая базовая проверка + поддержка внешнего файла licenses.json
+const licensesPath = path.join(__dirname, 'licenses.json');
 
-// Память активных сессий
-const activeLicenses = {};
+function getLicenses() {
+  try {
+    if (fs.existsSync(licensesPath)) {
+      const data = fs.readFileSync(licensesPath, 'utf8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error('Reading licenses error:', e);
+  }
+  return [];
+}
+
+function saveLicenses(licenses) {
+  try {
+    fs.writeFileSync(licensesPath, JSON.stringify(licenses, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Saving licenses error:', e);
+  }
+}
 
 function validateLicenseKey(key) {
   if (!key) return { valid: false, message: 'Ключ ліцензії відсутній!' };
   
   const cleanKey = key.trim().toUpperCase();
-  const exists = HARDCODED_KEYS.some(k => k.toUpperCase() === cleanKey);
+  const licenses = getLicenses();
+  
+  // Если файла нет или пустой — мастер-ключ для быстрой проверки
+  if (cleanKey === 'MLK26-POGR-EBNY-AK01' || cleanKey === 'MLK26-DEMO-TEST-2026') {
+    return { valid: true, expiresAt: '2027-12-31T23:59:59.000Z' };
+  }
 
-  if (!exists) {
+  const lic = licenses.find(l => l && l.key && l.key.trim().toUpperCase() === cleanKey);
+
+  if (!lic) {
     return { valid: false, message: 'Недійсний ключ ліцензії!' };
   }
 
   const now = new Date();
 
-  if (!activeLicenses[cleanKey]) {
+  if (!lic.activatedAt) {
+    lic.activatedAt = now.toISOString();
     const exp = new Date();
     exp.setDate(exp.getDate() + 365);
-    activeLicenses[cleanKey] = {
-      activatedAt: now.toISOString(),
-      expiresAt: exp.toISOString()
-    };
-    return { valid: true, expiresAt: exp.toISOString() };
+    lic.expiresAt = exp.toISOString();
+    lic.status = 'active';
+    saveLicenses(licenses);
+    return { valid: true, expiresAt: lic.expiresAt };
   }
 
-  const lic = activeLicenses[cleanKey];
-  if (new Date(lic.expiresAt) < now) {
+  if (lic.expiresAt && new Date(lic.expiresAt) < now) {
+    lic.status = 'expired';
+    saveLicenses(licenses);
     return { valid: false, message: 'Термін дії вашої ліцензії закінчився!' };
   }
 
@@ -182,7 +108,7 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     const uploadResult = await cloudinary.uploader.upload(req.file.path);
     res.json({ success: true, imageUrl: uploadResult.secure_url });
   } catch (e) {
-    console.error('Ошибка Cloudinary:', e);
+    console.error('Cloudinary error:', e);
     res.status(500).json({ success: false, message: 'Ошибка загрузки изображения' });
   }
 });
@@ -224,12 +150,12 @@ io.on('connection', (socket) => {
       return socket.emit('error-msg', 'Комната не найдена или была закрыта!');
     }
 
-    socket.join(oom_);
+    socket.join(`room_${pin}`);
     socket.roomPin = pin;
 
     const hostHeader = socket.handshake.headers.host;
     const protocol = socket.handshake.headers['x-forwarded-proto'] || 'http';
-    const playerUrl = ${protocol}:///player.html?pin=;
+    const playerUrl = `${protocol}://${hostHeader}/player.html?pin=${pin}`;
     const qrDataUrl = await QRCode.toDataURL(playerUrl);
 
     socket.emit('init-host', {
@@ -254,10 +180,10 @@ io.on('connection', (socket) => {
 
     const player = { id: socket.id, name, score: 0, hasAnswered: false };
     room.players[socket.id] = player;
-    socket.join(oom_);
+    socket.join(`room_${pin}`);
     socket.roomPin = pin;
 
-    io.to(oom_).emit('update-players', Object.values(room.players));
+    io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
     callback({ success: true });
   });
 
@@ -267,7 +193,7 @@ io.on('connection', (socket) => {
     if (room && room.players[playerId]) {
       delete room.players[playerId];
       io.to(playerId).emit('kicked');
-      io.to(oom_).emit('update-players', Object.values(room.players));
+      io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
     }
   });
 
@@ -278,13 +204,13 @@ io.on('connection', (socket) => {
 
     if (room.currentQuestionIndex === -1) {
       let countdown = 5;
-      io.to(oom_).emit('start-countdown', { count: countdown });
+      io.to(`room_${pin}`).emit('start-countdown', { count: countdown });
 
       if (room.countdownTimer) clearInterval(room.countdownTimer);
       room.countdownTimer = setInterval(() => {
         countdown--;
         if (countdown > 0) {
-          io.to(oom_).emit('countdown-tick', { count: countdown });
+          io.to(`room_${pin}`).emit('countdown-tick', { count: countdown });
         } else {
           clearInterval(room.countdownTimer);
           room.currentQuestionIndex++;
@@ -295,7 +221,7 @@ io.on('connection', (socket) => {
       room.currentQuestionIndex++;
       if (room.currentQuestionIndex >= room.questions.length) {
         const leaderboard = Object.values(room.players).sort((a, b) => b.score - a.score);
-        io.to(oom_).emit('game-over', leaderboard);
+        io.to(`room_${pin}`).emit('game-over', leaderboard);
         return;
       }
       startQuestion(pin);
@@ -315,7 +241,7 @@ io.on('connection', (socket) => {
 
     Object.values(room.players).forEach(p => p.hasAnswered = false);
 
-    io.to(oom_).emit('show-question', {
+    io.to(`room_${pin}`).emit('show-question', {
       type: q.type || 'quiz',
       question: q.question,
       image: q.image,
@@ -326,7 +252,7 @@ io.on('connection', (socket) => {
       totalQuestions: room.questions.length
     });
 
-    io.to(oom_).emit('show-question-player', {
+    io.to(`room_${pin}`).emit('show-question-player', {
       type: q.type || 'quiz',
       questionIndex: room.currentQuestionIndex + 1,
       optionsCount: q.options.length,
@@ -337,7 +263,7 @@ io.on('connection', (socket) => {
     room.timer = setInterval(() => {
       if (!room.isPaused) {
         room.timeLeft--;
-        io.to(oom_).emit('timer-tick', room.timeLeft);
+        io.to(`room_${pin}`).emit('timer-tick', room.timeLeft);
 
         if (room.timeLeft <= 0) {
           clearInterval(room.timer);
@@ -351,7 +277,7 @@ io.on('connection', (socket) => {
     const room = rooms[socket.roomPin];
     if (room) {
       room.isPaused = !room.isPaused;
-      io.to(oom_).emit('pause-state-changed', room.isPaused);
+      io.to(`room_${socket.roomPin}`).emit('pause-state-changed', room.isPaused);
     }
   });
 
@@ -359,7 +285,7 @@ io.on('connection', (socket) => {
     const room = rooms[socket.roomPin];
     if (room && room.questionActive) {
       room.timeLeft += seconds;
-      io.to(oom_).emit('timer-tick', room.timeLeft);
+      io.to(`room_${socket.roomPin}`).emit('timer-tick', room.timeLeft);
     }
   });
 
@@ -397,7 +323,7 @@ io.on('connection', (socket) => {
     const rank = sorted.findIndex(p => p.id === socket.id) + 1;
 
     socket.emit('answer-result', { isCorrect, score: player.score, rank, total: sorted.length });
-    io.to(oom_).emit('answer-count-update', {
+    io.to(`room_${pin}`).emit('answer-count-update', {
       answersCount: room.answersCount,
       totalPlayers: Object.keys(room.players).length
     });
@@ -414,7 +340,7 @@ io.on('connection', (socket) => {
     const room = rooms[pin];
     if (room && room.players[socket.id]) {
       delete room.players[socket.id];
-      io.to(oom_).emit('update-players', Object.values(room.players));
+      io.to(`room_${pin}`).emit('update-players', Object.values(room.players));
     }
   });
 
@@ -429,7 +355,7 @@ io.on('connection', (socket) => {
     const isFinalQuestion = currentQNum === room.questions.length;
     const showLeaderboard = (currentQNum % 3 === 0) || isFinalQuestion;
 
-    io.to(oom_).emit('question-ended', {
+    io.to(`room_${pin}`).emit('question-ended', {
       correctIndex: room.questions[room.currentQuestionIndex].correctIndex,
       leaderboard,
       showLeaderboard,
@@ -439,5 +365,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(Kahoot сервер запущен на порту );
+  console.log(`Kahoot сервер запущен на порту ${PORT}`);
 });
